@@ -8,7 +8,7 @@
 ---@field rotation_speed number @ RealOrientation per tick.
 ---@field stack_size integer @ Must be at least 1.
 ---@field chases_belt_items boolean @ https://lua-api.factorio.com/latest/prototypes/InserterPrototype.html#chases_belt_items
----@field inserter_position_in_tile VectorXY @ Modulo (%) of x and y of the inserter's position.
+---@field inserter_position_in_tile VectorXY @ Modulo (%) of x and y of the inserter's position. -- NOTE: currently unused
 ---@field from_type "inventory"|"belt"|"ground"
 ---@field from_vector VectorXY @ Relative to inserter position.
 ---@field from_belt_speed number? @ Tiles per tick of each item on the belt being picked up from.
@@ -227,11 +227,11 @@ end
 ---@param extension_speed number @ Tiles per tick.
 ---@param from_length number @ Tiles.
 ---@param to_length number @ Tiles.
----@param from_is_belt boolean @ Is this inserter picking up from a belt?
+---@param does_chase boolean @ Is this inserter picking up from a belt?
 ---@return integer
-local function calculate_extension_ticks(extension_speed, from_length, to_length, from_is_belt)
+local function calculate_extension_ticks(extension_speed, from_length, to_length, does_chase)
   local diff = math.abs(from_length - to_length)
-  if from_is_belt then
+  if does_chase then
     diff = math.max(0, diff - 0.5)
   end
   return math.ceil(diff / extension_speed)
@@ -240,10 +240,10 @@ end
 ---@param rotation_speed number @ RealOrientation per tick.
 ---@param from_vector VectorXY @ Must be normalized.
 ---@param to_vector VectorXY @ Must be normalized.
----@param from_is_belt boolean @ Is this inserter picking up from a belt?
+---@param does_chase boolean @ Is this inserter picking up from a belt?
 ---@param from_length number @ Length of the from_vector, before normalization.
 ---@return integer
-local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, from_is_belt, from_length)
+local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, does_chase, from_length)
   -- This math is horrendous and I need to learn to use my brain better with angles. Good lord.
 
   local from_angle = math.abs(math.asin(from_vector.x)) / math.rad(360)
@@ -265,7 +265,7 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
   end
   -- game.print(string.format("from: %.3f, to: %.3f, diff: %.3f", from_angle, to_angle, tostring(diff)), {skip_if_redundant = false})
 
-  if from_is_belt then
+  if does_chase then
     local vec = normalize_vector{x = 0.5, y = from_length}
     local angle_for_half_a_tile = math.asin(vec.x) / math.rad(360)
     diff = math.max(0, diff - angle_for_half_a_tile)
@@ -306,6 +306,13 @@ local function estimate_extra_pickup_ticks(def, from_length)
     return def.stack_size - 1
   end
   -- Is belt.
+  if def.chases_belt_items then
+    -- TODO: verify that it does indeed take 1 tick per item.
+    -- TODO: also take belt speed into account, if the stack size is > 8 then it would pick up all items and
+    -- have to wait for more items.
+    -- TODO: also consider the fact that the belt may not be full again in the time it performs a full swing
+    return def.stack_size - 1
+  end
   -- TODO: Improve this a lot.
   local vec = normalize_vector{x = 0.25, y = from_length}
   local angle_per_item = math.asin(vec.x) / math.rad(360)
@@ -323,11 +330,11 @@ local function estimate_inserter_speed(def)
   local to_vector = snap_vector(copy_vector(def.to_vector))
   local from_length = get_length(from_vector)
   local to_length = get_length(to_vector)
-  local from_is_belt = def.from_type == "belt"
-  local extension_ticks = calculate_extension_ticks(def.extension_speed, from_length, to_length, from_is_belt)
+  local does_chase = def.chases_belt_items and def.from_type == "belt"
+  local extension_ticks = calculate_extension_ticks(def.extension_speed, from_length, to_length, does_chase)
   normalize_vector(from_vector, from_length)
   normalize_vector(to_vector, to_length)
-  local rotation_ticks = calculate_rotation_ticks(def.rotation_speed, from_vector, to_vector, from_is_belt, from_length)
+  local rotation_ticks = calculate_rotation_ticks(def.rotation_speed, from_vector, to_vector, does_chase, from_length)
   local ticks_per_swing = math.max(extension_ticks, rotation_ticks, 1)
   local extra_drop_ticks = calculate_extra_drop_ticks(def)
   local extra_pickup_ticks = estimate_extra_pickup_ticks(def, from_length)
