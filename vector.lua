@@ -118,7 +118,7 @@ end
 
 return {
   copy = copy,
-  length = get_length,
+  get_length = get_length,
   set_length = set_length,
   normalize = normalize,
   snap_to_map = snap_to_map,

@@ -270,8 +270,8 @@ end
 local function estimate_inserter_speed(def)
   local from_vector = vec.snap_to_map(vec.copy(def.from_vector))
   local to_vector = vec.snap_to_map(vec.copy(def.to_vector))
-  local from_length = vec.length(from_vector)
-  local to_length = vec.length(to_vector)
+  local from_length = vec.get_length(from_vector)
+  local to_length = vec.get_length(to_vector)
   local does_chase = def.chases_belt_items and def.from_type == "belt"
   local extension_ticks = calculate_extension_ticks(def.extension_speed, from_length, to_length, does_chase)
   vec.normalize(from_vector, from_length)
