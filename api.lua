@@ -191,31 +191,28 @@ end
 ---@param from_length number @ Length of the from_vector, before normalization.
 ---@return integer
 local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, does_chase, from_length)
-  -- This math is horrendous and I need to learn to use my brain better with angles. Good lord.
+  local from_orientation = vec.orientation(from_vector)
+  local to_orientation = vec.orientation(to_vector)
 
-  local from_angle = math.abs(math.asin(from_vector.x)) / math.rad(360)
-  if from_vector.y > 0 then from_angle = 0.5 - from_angle end
-  if from_vector.x < 0 then from_angle = 1 - from_angle end
-  local to_angle = math.abs(math.asin(to_vector.x)) / math.rad(360)
-  -- game.print(tostring(to_angle), {skip_if_redundant = false})
-  if to_vector.y > 0 then to_angle = 0.5 - to_angle end
-  if to_vector.x < 0 then to_angle = 1 - to_angle end
-
-  local diff = math.abs(from_angle - to_angle)
+  local diff = math.abs(from_orientation - to_orientation)
   if diff > 0.5 then
-    if from_angle < to_angle then
-      from_angle = from_angle + 1
+    if from_orientation < to_orientation then
+      from_orientation = from_orientation + 1
     else
-      to_angle = to_angle + 1
+      to_orientation = to_orientation + 1
     end
-    diff = math.abs(to_angle - from_angle)
+    diff = math.abs(to_orientation - from_orientation)
   end
-  -- game.print(string.format("from: %.3f, to: %.3f, diff: %.3f", from_angle, to_angle, tostring(diff)), {skip_if_redundant = false})
+  -- DEBUG
+  -- game.print(string.format("from: %.3f, to: %.3f, diff: %.3f",
+  --   from_orientation,
+  --   to_orientation,
+  --   tostring(diff)
+  -- ), {skip_if_redundant = false})
 
   if does_chase then
-    local vector = vec.normalize{x = 0.5, y = from_length}
-    local angle_for_half_a_tile = math.asin(vector.x) / math.rad(360)
-    diff = math.max(0, diff - angle_for_half_a_tile)
+    local orientation_for_half_a_tile = vec.orientation{x = 0.5, y = -from_length}
+    diff = math.max(0, diff - orientation_for_half_a_tile)
   end
 
   return math.ceil(diff / rotation_speed)
@@ -261,12 +258,10 @@ local function estimate_extra_pickup_ticks(def, from_length)
     return def.stack_size - 1
   end
   -- TODO: Improve this a lot.
-  local vector = vec.normalize{x = 0.25, y = from_length}
-  local angle_per_item = math.asin(vector.x) / math.rad(360)
-  vector = vec.normalize{x = def.from_belt_speed, y = from_length}
-  local belt_angle_per_tick = math.asin(vector.x) / math.rad(360)
-  belt_angle_per_tick = belt_angle_per_tick % def.rotation_speed
-  local average_seek_ticks = angle_per_item / (def.rotation_speed + belt_angle_per_tick)
+  local orientation_per_item = vec.orientation{x = 0.25, y = -from_length}
+  local belt_orientation_per_tick = vec.orientation{x = def.from_belt_speed, y = -from_length}
+  belt_orientation_per_tick = belt_orientation_per_tick % def.rotation_speed
+  local average_seek_ticks = orientation_per_item / (def.rotation_speed + belt_orientation_per_tick)
   return math.max(def.stack_size, average_seek_ticks * def.stack_size)
 end
 

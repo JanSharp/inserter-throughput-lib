@@ -85,6 +85,27 @@ local function mod_scalar(left, right)
   return left
 end
 
+local rad360 = math.rad(360)
+
+---North is 0, goes clockwise, always positive.
+---@param vector VectorXY
+---@return number
+local function radians(vector)
+  -- https://stackoverflow.com/questions/283406/what-is-the-difference-between-atan-and-atan2-in-c
+  -- x and y are flipped because in Factorio north is 0.
+  -- Lua's modulo always returns a positive number. This is making use of that to turn the -180 to 180 range.
+  -- into a 0 to 360 range.
+  return math.atan2(vector.x, -vector.y) % rad360
+end
+
+---Returns a RealOrientation, so [0, 1) where 0 is north, 0.25 is east, 0.5 is south, 0.75 is west.
+---@param vector VectorXY
+---@return RealOrientation
+local function orientation(vector)
+  -- See comments in `radians`.
+  return (math.atan2(vector.x, -vector.y) % rad360) / rad360
+end
+
 return {
   copy = copy,
   length = get_length,
@@ -95,4 +116,6 @@ return {
   mul_scalar = mul_scalar,
   div_scalar = div_scalar,
   mod_scalar = mod_scalar,
+  radians = radians,
+  orientation = orientation,
 }
