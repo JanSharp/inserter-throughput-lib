@@ -15,6 +15,16 @@ local function get_length(vector)
   return math.sqrt(x * x + y * y)
 end
 
+---@param vector VectorXY @ Gets modified.
+---@param length number
+---@return VectorXY vector
+local function set_length(vector, length)
+  local multiplier = length / get_length(vector)
+  vector.x = vector.x * multiplier
+  vector.y = vector.y * multiplier
+  return vector
+end
+
 ---Does not copy.
 ---@param vector VectorXY @ Gets modified.
 ---@param length number? @ Precalculated length if available.
@@ -109,6 +119,7 @@ end
 return {
   copy = copy,
   length = get_length,
+  set_length = set_length,
   normalize = normalize,
   snap_to_map = snap_to_map,
   add = add,
