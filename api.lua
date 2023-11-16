@@ -1,7 +1,5 @@
 
----@class VectorXY
----@field x number
----@field y number
+local vec = require("__inserter_throughput_lib__.vector")
 
 ---@class InserterThroughputDefinition
 ---@field extension_speed number @ Tiles per tick.
@@ -63,54 +61,6 @@ local belt_prototypes = {
   ["underground-belt"] = true,
 }
 
----@param vector VectorXY
----@return VectorXY
-local function copy_vector(vector)
-  return {x = vector.x, y = vector.y}
-end
-
----@param vector VectorXY
----@return number
-local function get_length(vector)
-  local x, y = vector.x, vector.y
-  return math.sqrt(x * x + y * y)
-end
-
----Does not copy.
----@param vector VectorXY
----@param length number? @ Precalculated length if available.
----@return VectorXY
-local function normalize_vector(vector, length)
-  length = length or get_length(vector)
-  vector.x = vector.x / length
-  vector.y = vector.y / length
-  return vector
-end
-
----Snaps x and y to the MapPosition grid (1/256).\
----Does not copy.\
----I don't know if the game rounds or floors, but this function is flooring.
----@param vector VectorXY
----@return VectorXY
-local function snap_vector(vector)
-  -- Fast way of flooring (to negative infinity).
-  local x = vector.x
-  vector.x = x - (x % (1/256))
-  local y = vector.y
-  vector.y = y - (y % (1/256))
-  return vector
-end
-
----@param left VectorXY
----@param right VectorXY
----@return VectorXY
-local function subtract_vector(left, right)
-  return {
-    x = left.x - right.x,
-    y = left.y - right.y,
-  }
-end
-
 ---@param entity LuaEntity?
 ---@return "ground"|"inventory"|"belt"
 local function get_interactive_type(entity)
@@ -166,7 +116,7 @@ end
 ---@param inserter_position VectorXY
 ---@param from_position VectorXY
 local function set_from_based_on_position(def, surface, inserter_position, from_position)
-  def.from_vector = subtract_vector(from_position, inserter_position)
+  def.from_vector = vec.sub(vec.copy(from_position), inserter_position)
   set_from_based_on_entity(def, get_interactive_entity(surface, from_position))
 end
 
@@ -174,7 +124,7 @@ end
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity
 local function set_from_based_on_inserter(def, inserter)
-  def.from_vector = subtract_vector(inserter.pickup_position--[[@as VectorXY]], inserter.position--[[@as VectorXY]])
+  def.from_vector = vec.sub(inserter.pickup_position, inserter.position)
   set_from_based_on_entity(def, inserter.pickup_target)
 end
 
@@ -197,10 +147,7 @@ end
 ---@param inserter_position VectorXY
 ---@param to_position VectorXY
 local function set_to_based_on_position(def, surface, inserter_position, to_position)
-  def.to_vector = {
-    x = to_position.x - inserter_position.x,
-    y = to_position.y - inserter_position.y,
-  }
+  def.to_vector = vec.sub(vec.copy(to_position), inserter_position)
   set_to_based_on_entity(def, get_interactive_entity(surface, to_position))
 end
 
@@ -208,7 +155,7 @@ end
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity
 local function set_to_based_on_inserter(def, inserter)
-  def.to_vector = subtract_vector(inserter.drop_position--[[@as VectorXY]], inserter.position--[[@as VectorXY]])
+  def.to_vector = vec.sub(inserter.drop_position, inserter.position)
   set_to_based_on_entity(def, inserter.drop_target)
 end
 
@@ -217,9 +164,9 @@ end
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity
 local function set_from_and_to_based_on_inserter(def, inserter)
-  local position = inserter.position--[[@as VectorXY]]
-  def.from_vector = subtract_vector(inserter.pickup_position--[[@as VectorXY]], position)
-  def.to_vector = subtract_vector(inserter.drop_position--[[@as VectorXY]], position)
+  local position = inserter.position
+  def.from_vector = vec.sub(inserter.pickup_position, position)
+  def.to_vector = vec.sub(inserter.drop_position, position)
   set_from_based_on_entity(def, inserter.pickup_target)
   set_to_based_on_entity(def, inserter.drop_target)
 end
@@ -266,8 +213,8 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
   -- game.print(string.format("from: %.3f, to: %.3f, diff: %.3f", from_angle, to_angle, tostring(diff)), {skip_if_redundant = false})
 
   if does_chase then
-    local vec = normalize_vector{x = 0.5, y = from_length}
-    local angle_for_half_a_tile = math.asin(vec.x) / math.rad(360)
+    local vector = vec.normalize{x = 0.5, y = from_length}
+    local angle_for_half_a_tile = math.asin(vector.x) / math.rad(360)
     diff = math.max(0, diff - angle_for_half_a_tile)
   end
 
@@ -314,10 +261,10 @@ local function estimate_extra_pickup_ticks(def, from_length)
     return def.stack_size - 1
   end
   -- TODO: Improve this a lot.
-  local vec = normalize_vector{x = 0.25, y = from_length}
-  local angle_per_item = math.asin(vec.x) / math.rad(360)
-  vec = normalize_vector{x = def.from_belt_speed, y = from_length}
-  local belt_angle_per_tick = math.asin(vec.x) / math.rad(360)
+  local vector = vec.normalize{x = 0.25, y = from_length}
+  local angle_per_item = math.asin(vector.x) / math.rad(360)
+  vector = vec.normalize{x = def.from_belt_speed, y = from_length}
+  local belt_angle_per_tick = math.asin(vector.x) / math.rad(360)
   belt_angle_per_tick = belt_angle_per_tick % def.rotation_speed
   local average_seek_ticks = angle_per_item / (def.rotation_speed + belt_angle_per_tick)
   return math.max(def.stack_size, average_seek_ticks * def.stack_size)
@@ -326,14 +273,14 @@ end
 ---@param def InserterThroughputDefinition
 ---@return number items_per_second
 local function estimate_inserter_speed(def)
-  local from_vector = snap_vector(copy_vector(def.from_vector))
-  local to_vector = snap_vector(copy_vector(def.to_vector))
-  local from_length = get_length(from_vector)
-  local to_length = get_length(to_vector)
+  local from_vector = vec.snap_to_map(vec.copy(def.from_vector))
+  local to_vector = vec.snap_to_map(vec.copy(def.to_vector))
+  local from_length = vec.length(from_vector)
+  local to_length = vec.length(to_vector)
   local does_chase = def.chases_belt_items and def.from_type == "belt"
   local extension_ticks = calculate_extension_ticks(def.extension_speed, from_length, to_length, does_chase)
-  normalize_vector(from_vector, from_length)
-  normalize_vector(to_vector, to_length)
+  vec.normalize(from_vector, from_length)
+  vec.normalize(to_vector, to_length)
   local rotation_ticks = calculate_rotation_ticks(def.rotation_speed, from_vector, to_vector, does_chase, from_length)
   local ticks_per_swing = math.max(extension_ticks, rotation_ticks, 1)
   local extra_drop_ticks = calculate_extra_drop_ticks(def)
@@ -343,11 +290,6 @@ local function estimate_inserter_speed(def)
 end
 
 return {
-  copy_vector = copy_vector,
-  get_length = get_length,
-  normalize_vector = normalize_vector,
-  snap_vector = snap_vector,
-  subtract_vector = subtract_vector,
   get_target_type = get_interactive_type,
   get_interactive_entity = get_interactive_entity,
   set_from_based_on_entity = set_from_based_on_entity,
