@@ -1,6 +1,11 @@
 
 local vec = require("__inserter_throughput_lib__.vector")
 
+local math_abs = math.abs
+local math_ceil = math.ceil
+local math_floor = math.floor
+local math_max = math.max
+
 ---@class InserterThroughputDefinition
 ---@field extension_speed number @ Tiles per tick.
 ---@field rotation_speed number @ RealOrientation per tick.
@@ -83,8 +88,8 @@ do
   ---@param position VectorXY
   ---@return LuaEntity?
   function get_interactive_entity(surface, position)
-    local left = math.floor(position.x)
-    local top = math.floor(position.y)
+    local left = math_floor(position.x)
+    local top = math_floor(position.y)
     left_top.x = left
     left_top.y = top
     right_bottom.x = left + 1
@@ -177,11 +182,11 @@ end
 ---@param does_chase boolean @ Is this inserter picking up from a belt?
 ---@return integer
 local function calculate_extension_ticks(extension_speed, from_length, to_length, does_chase)
-  local diff = math.abs(from_length - to_length)
+  local diff = math_abs(from_length - to_length)
   if does_chase then
-    diff = math.max(0, diff - 0.5)
+    diff = math_max(0, diff - 0.5)
   end
-  return math.ceil(diff / extension_speed)
+  return math_ceil(diff / extension_speed)
 end
 
 ---@param rotation_speed number @ RealOrientation per tick.
@@ -194,14 +199,14 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
   local from_orientation = vec.orientation(from_vector)
   local to_orientation = vec.orientation(to_vector)
 
-  local diff = math.abs(from_orientation - to_orientation)
+  local diff = math_abs(from_orientation - to_orientation)
   if diff > 0.5 then
     if from_orientation < to_orientation then
       from_orientation = from_orientation + 1
     else
       to_orientation = to_orientation + 1
     end
-    diff = math.abs(to_orientation - from_orientation)
+    diff = math_abs(to_orientation - from_orientation)
   end
   -- DEBUG
   -- game.print(string.format("from: %.3f, to: %.3f, diff: %.3f",
@@ -212,10 +217,10 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
 
   if does_chase then
     local orientation_for_half_a_tile = vec.orientation{x = 0.5, y = -from_length}
-    diff = math.max(0, diff - orientation_for_half_a_tile)
+    diff = math_max(0, diff - orientation_for_half_a_tile)
   end
 
-  return math.ceil(diff / rotation_speed)
+  return math_ceil(diff / rotation_speed)
 end
 
 ---@param def InserterThroughputDefinition
@@ -236,7 +241,7 @@ local function calculate_extra_drop_ticks(def)
   end
   -- How the hell does changing this to *4 actually make a difference... Makes less than 0 sense.
   local ticks_per_item = 0.25 / def.to_belt_speed
-  return math.max(stack_size - 1, math.floor(ticks_per_item * (stack_size - 2)))
+  return math_max(stack_size - 1, math_floor(ticks_per_item * (stack_size - 2)))
 end
 
 ---@param def InserterThroughputDefinition
@@ -262,7 +267,7 @@ local function estimate_extra_pickup_ticks(def, from_length)
   local belt_orientation_per_tick = vec.orientation{x = def.from_belt_speed, y = -from_length}
   belt_orientation_per_tick = belt_orientation_per_tick % def.rotation_speed
   local average_seek_ticks = orientation_per_item / (def.rotation_speed + belt_orientation_per_tick)
-  return math.max(def.stack_size, average_seek_ticks * def.stack_size)
+  return math_max(def.stack_size, average_seek_ticks * def.stack_size)
 end
 
 ---@param def InserterThroughputDefinition
@@ -277,7 +282,7 @@ local function estimate_inserter_speed(def)
   vec.normalize(from_vector, from_length)
   vec.normalize(to_vector, to_length)
   local rotation_ticks = calculate_rotation_ticks(def.rotation_speed, from_vector, to_vector, does_chase, from_length)
-  local ticks_per_swing = math.max(extension_ticks, rotation_ticks, 1)
+  local ticks_per_swing = math_max(extension_ticks, rotation_ticks, 1)
   local extra_drop_ticks = calculate_extra_drop_ticks(def)
   local extra_pickup_ticks = estimate_extra_pickup_ticks(def, from_length)
   local total_ticks = (ticks_per_swing * 2) + extra_drop_ticks + extra_pickup_ticks
