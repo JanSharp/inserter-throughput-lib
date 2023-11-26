@@ -1,5 +1,5 @@
 
----Only accepts tables taking the iy form, not arrays.
+---Only accepts tables taking the xy form, not arrays.
 ---@alias VectorXY Vector|MapPosition
 
 ---Must watch (3blue1brown) https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab
@@ -14,9 +14,10 @@ local math_atan2 = math.atan2
 local math_sin = math.sin
 local math_cos = math.cos
 
----@param vector VectorXY
----@return VectorXY
-local function copy(vector)
+---@generic T : VectorXY
+---@param vector T
+---@return T
+local function copy(vector) ---@cast vector VectorXY
   return {x = vector.x, y = vector.y}
 end
 
@@ -27,21 +28,22 @@ local function get_length(vector)
   return math_sqrt(x * x + y * y)
 end
 
----@param vector VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
 ---@param length number
----@return VectorXY vector
-local function set_length(vector, length)
+---@return T vector
+local function set_length(vector, length) ---@cast vector VectorXY
   local multiplier = length / get_length(vector)
   vector.x = vector.x * multiplier
   vector.y = vector.y * multiplier
   return vector
 end
 
----Does not copy.
----@param vector VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
 ---@param length number? @ Precalculated length if available.
----@return VectorXY vector
-local function normalize(vector, length)
+---@return T vector
+local function normalize(vector, length) ---@cast vector VectorXY
   length = length or get_length(vector)
   vector.x = vector.x / length
   vector.y = vector.y / length
@@ -49,11 +51,11 @@ local function normalize(vector, length)
 end
 
 ---Snaps x and y to the MapPosition grid (1/256).\
----Does not copy.\
 ---I don't know if the game rounds or floors, but this function is flooring.
----@param vector VectorXY @ Gets modified.
----@return VectorXY vector
-local function snap_to_map(vector)
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
+---@return T vector
+local function snap_to_map(vector) ---@cast vector VectorXY
   -- Fast way of flooring (to negative infinity).
   local x = vector.x
   vector.x = x - (x % (1/256))
@@ -62,46 +64,51 @@ local function snap_to_map(vector)
   return vector
 end
 
----@param left VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param left T @ Gets modified.
 ---@param right VectorXY
----@return VectorXY left
-local function add(left, right)
+---@return T left
+local function add(left, right) ---@cast left VectorXY
   left.x = left.x + right.x
   left.y = left.y + right.y
   return left
 end
 
----@param left VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param left T @ Gets modified.
 ---@param right VectorXY
----@return VectorXY left
-local function sub(left, right)
+---@return T left
+local function sub(left, right) ---@cast left VectorXY
   left.x = left.x - right.x
   left.y = left.y - right.y
   return left
 end
 
----@param left VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param left T @ Gets modified.
 ---@param right number
----@return VectorXY left
-local function mul_scalar(left, right)
+---@return T left
+local function mul_scalar(left, right) ---@cast left VectorXY
   left.x = left.x * right
   left.y = left.y * right
   return left
 end
 
----@param left VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param left T @ Gets modified.
 ---@param right number
----@return VectorXY left
-local function div_scalar(left, right)
+---@return T left
+local function div_scalar(left, right) ---@cast left VectorXY
   left.x = left.x / right
   left.y = left.y / right
   return left
 end
 
----@param left VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param left T @ Gets modified.
 ---@param right number
----@return VectorXY left
-local function mod_scalar(left, right)
+---@return T left
+local function mod_scalar(left, right) ---@cast left VectorXY
   left.x = left.x % right
   left.y = left.y % right
   return left
@@ -141,10 +148,11 @@ local function get_rotation_matrix_values(radians)
     sin, cos
 end
 
----@param vector VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
 ---@param radians_diff number
----@return VectorXY vector
-local function rotate_by_radians(vector, radians_diff)
+---@return T vector
+local function rotate_by_radians(vector, radians_diff) ---@cast vector VectorXY
   local ix, jx,
         iy, jy = get_rotation_matrix_values(radians_diff)
   local x, y = vector.x, vector.y
@@ -153,18 +161,20 @@ local function rotate_by_radians(vector, radians_diff)
   return vector
 end
 
----@param vector VectorXY @ Gets modified.
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
 ---@param orientation_diff RealOrientation @ Can exceed the usual bounds of RealOrientation.
----@return VectorXY vector
-local function rotate_by_orientation(vector, orientation_diff)
+---@return T vector
+local function rotate_by_orientation(vector, orientation_diff) ---@cast vector VectorXY
   return rotate_by_radians(vector, orientation_diff * rad360)
 end
 
 ---Right to left... because math.
+---@generic T : VectorXY
 ---@param matrix MatrixIJ
----@param vector VectorXY @ Gets modified.
----@return VectorXY vector
-local function transform_by_matrix(matrix, vector)
+---@param vector T @ Gets modified.
+---@return T vector
+local function transform_by_matrix(matrix, vector) ---@cast vector VectorXY
   local x, y = vector.x, vector.y
   vector.x = x * matrix.ix + y * matrix.jx
   vector.y = x * matrix.iy + y * matrix.jy
