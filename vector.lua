@@ -114,6 +114,18 @@ local function mod_scalar(left, right) ---@cast left VectorXY
   return left
 end
 
+---Project `right` onto `left`, get that length and multiply it by the length of `left`.\
+---If they are perpendicular to each other, it is 0.\
+---If they are pointing generally away from each other, it is negative.\
+---You can also think about it as projecting `left` onto `right` and the result is the same.
+---See https://www.3blue1brown.com/lessons/dot-products
+---@param left VectorXY
+---@param right VectorXY
+---@return number
+local function dot_product(left, right)
+  return left.x * right.x + left.y * right.y
+end
+
 local rad360 = math.rad(360)
 
 ---North is 0, goes clockwise, always positive.
@@ -255,6 +267,7 @@ return {
   mul_scalar = mul_scalar,
   div_scalar = div_scalar,
   mod_scalar = mod_scalar,
+  dot_product = dot_product,
   get_radians = get_radians,
   get_orientation = get_orientation,
   rotate_by_radians = rotate_by_radians,
