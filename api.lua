@@ -196,8 +196,8 @@ end
 ---@param from_length number @ Length of the from_vector, before normalization.
 ---@return integer
 local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, does_chase, from_length)
-  local from_orientation = vec.orientation(from_vector)
-  local to_orientation = vec.orientation(to_vector)
+  local from_orientation = vec.get_orientation(from_vector)
+  local to_orientation = vec.get_orientation(to_vector)
 
   local diff = math_abs(from_orientation - to_orientation)
   if diff > 0.5 then
@@ -216,7 +216,7 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
   -- ), {skip_if_redundant = false})
 
   if does_chase then
-    local orientation_for_half_a_tile = vec.orientation{x = 0.5, y = -from_length}
+    local orientation_for_half_a_tile = vec.get_orientation{x = 0.5, y = -from_length}
     diff = math_max(0, diff - orientation_for_half_a_tile)
   end
 
@@ -263,8 +263,8 @@ local function estimate_extra_pickup_ticks(def, from_length)
     return def.stack_size - 1
   end
   -- TODO: Improve this a lot.
-  local orientation_per_item = vec.orientation{x = 0.25, y = -from_length}
-  local belt_orientation_per_tick = vec.orientation{x = def.from_belt_speed, y = -from_length}
+  local orientation_per_item = vec.get_orientation{x = 0.25, y = -from_length}
+  local belt_orientation_per_tick = vec.get_orientation{x = def.from_belt_speed, y = -from_length}
   belt_orientation_per_tick = belt_orientation_per_tick % def.rotation_speed
   local average_seek_ticks = orientation_per_item / (def.rotation_speed + belt_orientation_per_tick)
   return math_max(def.stack_size, average_seek_ticks * def.stack_size)
