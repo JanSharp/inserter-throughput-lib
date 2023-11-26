@@ -1,5 +1,5 @@
 
-local vec = require("__inserter_throughput_lib__.vector")
+local vec = require("__inserter-throughput-lib__.vector")
 
 local math_abs = math.abs
 local math_ceil = math.ceil
