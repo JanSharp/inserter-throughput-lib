@@ -88,6 +88,26 @@ end
 ---@param left T @ Gets modified.
 ---@param right number
 ---@return T left
+local function add_scalar(left, right) ---@cast left VectorXY
+  left.x = left.x + right
+  left.y = left.y + right
+  return left
+end
+
+---@generic T : VectorXY
+---@param left T @ Gets modified.
+---@param right number
+---@return T left
+local function sub_scalar(left, right) ---@cast left VectorXY
+  left.x = left.x - right
+  left.y = left.y - right
+  return left
+end
+
+---@generic T : VectorXY
+---@param left T @ Gets modified.
+---@param right number
+---@return T left
 local function mul_scalar(left, right) ---@cast left VectorXY
   left.x = left.x * right
   left.y = left.y * right
@@ -264,6 +284,8 @@ return {
   snap_to_map = snap_to_map,
   add = add,
   sub = sub,
+  add_scalar = add_scalar,
+  sub_scalar = sub_scalar,
   mul_scalar = mul_scalar,
   div_scalar = div_scalar,
   mod_scalar = mod_scalar,
