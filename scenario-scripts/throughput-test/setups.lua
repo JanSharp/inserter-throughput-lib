@@ -18,7 +18,7 @@ local configurations = require("__inserter-throughput-lib__.scenario-scripts.thr
 ---@field connected_chest EntityDefinitionITL @ For loaders.
 ---@field connected_loader EntityDefinitionITL? @ For input and output chests.
 
----@class ParsedSetupITL
+---@class ParsedSetupITL : PickupAndDropTypeITL
 ---@field name string
 ---@field setup string
 ---@field width integer
@@ -32,6 +32,12 @@ local configurations = require("__inserter-throughput-lib__.scenario-scripts.thr
 ---@field inserter EntityDefinitionITL
 ---@field loaders EntityDefinitionITL[]
 ---@field undergrounds EntityDefinitionITL[]
+
+---@class PickupAndDropTypeITL
+---@field pickup_type "chest"|"belt"|"ground"?
+---@field drop_type "chest"|"belt"|"ground"?
+
+---@alias SetupFiltersITL PickupAndDropTypeITL
 
 local string_byte = string.byte
 
@@ -352,6 +358,18 @@ local function eval_final_width_and_height(parsed_setup)
 end
 
 ---@param parsed_setup ParsedSetupITL
+local function determine_pickup_and_drop_types(parsed_setup)
+  local pickup = parsed_setup.grid[get_point(parsed_setup.pickup.x, parsed_setup.pickup.y)]
+  local drop = parsed_setup.grid[get_point(parsed_setup.drop.x, parsed_setup.drop.y)]
+  parsed_setup.pickup_type = not pickup and "ground"
+    or pickup.entity_id == i_byte and "chest"
+    or "belt"
+  parsed_setup.drop_type = not drop and "ground"
+    or drop.entity_id == o_byte and "chest"
+    or "belt"
+end
+
+---@param parsed_setup ParsedSetupITL
 local function add_parsed_setup(parsed_setup)
   parsed_setups[#parsed_setups+1] = parsed_setup
 end
@@ -368,6 +386,7 @@ local function generate_and_add_variants(parsed_setup)
       local variant = util.copy(base_setup)
       remove_unused_chests(variant)
       eval_final_width_and_height(variant)
+      determine_pickup_and_drop_types(variant)
       add_parsed_setup(variant)
     end
   end
@@ -529,16 +548,27 @@ local function build_setup(surface, x, y, parsed_setup, configuration)
   }
 end
 
-local function build_all_setups()
+---@param filters SetupFiltersITL[]? @ Combined with an OR.
+local function build_setups(filters)
   setup_count = 0
   local nauvis = game.get_surface("nauvis") ---@cast nauvis -nil
   local x = 0
   for _, parsed_setup in pairs(parsed_setups) do
+    if filters then
+      local matches = false
+      for _, filter in pairs(filters) do
+        matches = (not filter.pickup_type or filter.pickup_type == parsed_setup.pickup_type)
+          and (not filter.drop_type or filter.drop_type == parsed_setup.drop_type)
+        if matches then break end
+      end
+      if not matches then goto continue end
+    end
     for i, configuration in pairs(configurations.configurations) do
       local y = (i - 1) * (parsed_setup.height + 1)
       build_setup(nauvis, x, y, parsed_setup, configuration)
     end
     x = x + parsed_setup.width + 1
+    ::continue::
   end
   print("total setup count: "..setup_count)
   setup_count = 0/0
@@ -741,8 +771,6 @@ add_setup{
 -- TODO: add a bunch of setups where it picks up from side loaded belts, both regular and underground.
 ---cSpell:enable
 
--- TODO: function to only build setups which pick up from belts, tieing into optimal algorithm parameter evaluation, since all other cases for pickup and drop are easily calculated
-
 return {
-  build_all_setups = build_all_setups,
+  build_setups = build_setups,
 }

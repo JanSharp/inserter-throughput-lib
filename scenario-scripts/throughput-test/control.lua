@@ -21,5 +21,5 @@ script.on_event(ev.on_player_created, function(event)
 end)
 
 script.on_init(function()
-  setups.build_all_setups()
+  setups.build_setups{{pickup_type = "belt"}}
 end)
