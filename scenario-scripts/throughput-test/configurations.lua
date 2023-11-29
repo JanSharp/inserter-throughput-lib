@@ -16,26 +16,26 @@ local belt_speeds = {
     name = "itl-express-transport-belt",
     belt_speed = 0.03125 * 3,
   },
-  {
-    name = "itl-speedy-belt",
-    belt_speed = 0.03125 * 4,
-  },
+  -- {
+  --   name = "itl-speedy-belt",
+  --   belt_speed = 0.03125 * 4,
+  -- },
   {
     name = "itl-insane-belt",
     belt_speed = 0.03125 * 5,
   },
-  {
-    name = "itl-unthinkable-belt",
-    belt_speed = 0.03125 * 6,
-  },
+  -- {
+  --   name = "itl-unthinkable-belt",
+  --   belt_speed = 0.03125 * 6,
+  -- },
 }
 
 local inserter_speeds = {
-  { -- super slow inserter
-    name = "itl-super-slow-inserter",
-    rotation_speed = 0.0075,
-    extension_speed = 0.0175,
-  },
+  -- { -- super slow inserter
+  --   name = "itl-super-slow-inserter",
+  --   rotation_speed = 0.0075,
+  --   extension_speed = 0.0175,
+  -- },
   { -- burner-inserter
     name = "itl-burner-inserter",
     rotation_speed = 0.01,
@@ -56,20 +56,20 @@ local inserter_speeds = {
     rotation_speed = 0.04,
     extension_speed = 0.07,
   },
-  { -- super fast inserter
-    name = "itl-super-fast-inserter",
-    rotation_speed = 0.065,
-    extension_speed = 0.1,
-  },
+  -- { -- super fast inserter
+  --   name = "itl-super-fast-inserter",
+  --   rotation_speed = 0.065,
+  --   extension_speed = 0.1,
+  -- },
 }
 
 local stack_sizes = {
   1,
-  2,
+  -- 2,
   3,
-  7,
+  -- 7,
   12,
-  17,
+  -- 17,
 }
 
 ---@class ConfigurationITL
