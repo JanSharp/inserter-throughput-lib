@@ -478,7 +478,7 @@ end
 local create_entity_from_def_lut = {
   [string_byte("i")] = function(create_entity, position, entity_def, configuration)
     local entity = assert(create_entity{
-      name = "infinity-chest",
+      name = "itl-infinity-chest",
       position = position,
     })
     entity.set_infinity_container_filter(1, {
@@ -488,7 +488,7 @@ local create_entity_from_def_lut = {
   end,
   [string_byte("o")] = function(create_entity, position, entity_def, configuration)
     local entity = assert(create_entity{
-      name = "infinity-chest",
+      name = "itl-infinity-chest",
       position = position,
     })
     entity.remove_unfiltered_items = true

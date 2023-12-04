@@ -42,3 +42,8 @@ for _, belt_speed in pairs(configurations.belt_speeds) do
 end
 
 data.raw["editor-controller"]["default"].generate_neighbor_chunks = false
+
+local infinity_chest = util.copy(data.raw["infinity-container"]["infinity-chest"])
+infinity_chest.name = "itl-infinity-chest"
+infinity_chest.inventory_size = 1 -- Improves performance by 35% in total (so game update).
+data:extend{infinity_chest}
