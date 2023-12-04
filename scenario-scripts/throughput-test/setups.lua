@@ -32,6 +32,7 @@ local configurations = require("__inserter-throughput-lib__.scenario-scripts.thr
 ---@field inserter EntityDefinitionITL
 ---@field loaders EntityDefinitionITL[]
 ---@field undergrounds EntityDefinitionITL[]
+---@field uses_belts boolean
 
 ---@class PickupAndDropTypeITL
 ---@field pickup_type "chest"|"belt"|"ground"?
@@ -370,6 +371,11 @@ local function determine_pickup_and_drop_types(parsed_setup)
 end
 
 ---@param parsed_setup ParsedSetupITL
+local function eval_uses_belts(parsed_setup)
+  parsed_setup.uses_belts = parsed_setup.pickup_type == "belt" or parsed_setup.drop_type == "belt"
+end
+
+---@param parsed_setup ParsedSetupITL
 local function add_parsed_setup(parsed_setup)
   parsed_setups[#parsed_setups+1] = parsed_setup
 end
@@ -383,10 +389,12 @@ local function generate_and_add_variants(parsed_setup)
     base_setup.pickup = pickup
     for _, drop in pairs(parsed_setup.drops) do
       base_setup.drop = drop
+      -- TODO: modify the name, or add some other variant info to the data structure
       local variant = util.copy(base_setup)
       remove_unused_chests(variant)
       eval_final_width_and_height(variant)
       determine_pickup_and_drop_types(variant)
+      eval_uses_belts(variant)
       add_parsed_setup(variant)
     end
   end
@@ -511,15 +519,13 @@ local create_entity_from_def_lut = {
   [string_byte("{")] = create_splitter,
 }
 
-local setup_count = 0/0
-
 ---@param surface LuaSurface
 ---@param x integer
 ---@param y integer
 ---@param parsed_setup ParsedSetupITL
 ---@param configuration ConfigurationITL
+---@return LuaEntity inserter
 local function build_setup(surface, x, y, parsed_setup, configuration)
-  setup_count = setup_count + 1
   local inserter
   local create_entity = surface.create_entity
   local top_left_offset = parsed_setup.left_top_offset
@@ -546,11 +552,12 @@ local function build_setup(surface, x, y, parsed_setup, configuration)
     x = x + 0.5 + parsed_setup.drop.x + top_left_offset.x + x_offset,
     y = y + 0.5 + parsed_setup.drop.y + top_left_offset.y + y_offset,
   }
+  return inserter
 end
 
 ---@param filters SetupFiltersITL[]? @ Combined with an OR.
 local function build_setups(filters)
-  setup_count = 0
+  local setup_count = 0
   local nauvis = game.get_surface("nauvis") ---@cast nauvis -nil
   local x = 0
   for _, parsed_setup in pairs(parsed_setups) do
@@ -563,15 +570,30 @@ local function build_setups(filters)
       end
       if not matches then goto continue end
     end
-    for i, configuration in pairs(configurations.configurations) do
+    for i, configuration in
+      pairs(parsed_setup.uses_belts
+        and configurations.configurations
+        or configurations.configurations_without_belts
+      )
+    do
       local y = (i - 1) * (parsed_setup.height + 1)
-      build_setup(nauvis, x, y, parsed_setup, configuration)
+      local inserter = build_setup(nauvis, x, y, parsed_setup, configuration)
+      setup_count = setup_count + 1
+      ---@type BuiltSetupITL
+      global.built_setups[setup_count] = {
+        parsed_setup = parsed_setup,
+        configuration = configuration,
+        inserter = inserter,
+        held_stack = inserter.held_stack,
+        cycle_count = 0,
+        average_total_ticks = 0,
+        was_valid_for_read = false,
+        cycle_start = -1,
+      }
     end
     x = x + parsed_setup.width + 1
     ::continue::
   end
-  print("total setup count: "..setup_count)
-  setup_count = 0/0
 end
 
 --[[

@@ -73,20 +73,23 @@ local stack_sizes = {
 }
 
 ---@class ConfigurationITL
----@field belt_speed number
+---@field belt_speed number @ `nil` for the configs in `without_belts`.
 ---@field rotation_speed number
 ---@field extension_speed number
 ---@field stack_size integer
----@field belt_name string
----@field loader_name string
----@field splitter_name string
----@field underground_name string
+---@field belt_name string @ `nil` for the configs in `without_belts`.
+---@field loader_name string @ `nil` for the configs in `without_belts`.
+---@field splitter_name string @ `nil` for the configs in `without_belts`.
+---@field underground_name string @ `nil` for the configs in `without_belts`.
 ---@field inserter_name string
 
 ---@type ConfigurationITL[]
 local configurations = {}
+---@type ConfigurationITL[]
+local configurations_without_belts = {}
 
-for _, belt_speed in pairs(belt_speeds) do
+
+for belt_index, belt_speed in pairs(belt_speeds) do
   for _, inserter_speed in pairs(inserter_speeds) do
     for _, stack_size in pairs(stack_sizes) do
       configurations[#configurations+1] = {
@@ -100,6 +103,14 @@ for _, belt_speed in pairs(belt_speeds) do
         underground_name = belt_speed.name.."-underground",
         inserter_name = inserter_speed.name,
       }
+      if belt_index == 1 then
+        configurations_without_belts[#configurations_without_belts+1] = {
+          rotation_speed = inserter_speed.rotation_speed,
+          extension_speed = inserter_speed.extension_speed,
+          stack_size = stack_size,
+          inserter_name = inserter_speed.name,
+        }
+      end
     end
   end
 end
@@ -109,4 +120,5 @@ return {
   inserter_speeds = inserter_speeds,
   stack_sizes = stack_sizes,
   configurations = configurations,
+  configurations_without_belts = configurations_without_belts,
 }
