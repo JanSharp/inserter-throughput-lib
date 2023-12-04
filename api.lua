@@ -84,6 +84,8 @@ do
   ---@type LuaSurface.find_entities_filtered_param
   local arg = {area = {left_top = left_top, right_bottom = right_bottom}}
 
+  -- TODO: Check if this logic also applies to drop. I've only tested pickup so far.
+
   ---@param surface LuaSurface
   ---@param position VectorXY
   ---@return LuaEntity?
