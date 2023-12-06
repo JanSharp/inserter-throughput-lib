@@ -105,6 +105,26 @@ do
   end
 end
 
+local extension_belt_offset = 0.5
+local rotation_belt_offset = 0.5
+local item_length_for_rotation = 0.25
+
+---@return table<string, number>
+local function get_params()
+  return {
+    extension_belt_offset = extension_belt_offset,
+    rotation_belt_offset = rotation_belt_offset,
+    item_length_for_rotation = item_length_for_rotation,
+  }
+end
+
+---@param params table<string, number>
+local function set_params(params)
+  extension_belt_offset = params.extension_belt_offset
+  rotation_belt_offset = params.rotation_belt_offset
+  item_length_for_rotation = params.item_length_for_rotation
+end
+
 ---Sets the `from_*` fields in def based on what it finds at the given position.\
 ---Does **not** set `from_vector` (because how would it).
 ---@param def InserterThroughputDefinition
@@ -186,7 +206,7 @@ end
 local function calculate_extension_ticks(extension_speed, from_length, to_length, does_chase)
   local diff = math_abs(from_length - to_length)
   if does_chase then
-    diff = math_max(0, diff - 0.5)
+    diff = math_max(0, diff - extension_belt_offset)
   end
   return math_ceil(diff / extension_speed)
 end
@@ -218,7 +238,7 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
   -- ), {skip_if_redundant = false})
 
   if does_chase then
-    local orientation_for_half_a_tile = vec.get_orientation{x = 0.5, y = -from_length}
+    local orientation_for_half_a_tile = vec.get_orientation{x = rotation_belt_offset, y = -from_length}
     diff = math_max(0, diff - orientation_for_half_a_tile)
   end
 
@@ -265,7 +285,7 @@ local function estimate_extra_pickup_ticks(def, from_length)
     return def.stack_size - 1
   end
   -- TODO: Improve this a lot.
-  local orientation_per_item = vec.get_orientation{x = 0.25, y = -from_length}
+  local orientation_per_item = vec.get_orientation{x = item_length_for_rotation, y = -from_length}
   local belt_orientation_per_tick = vec.get_orientation{x = def.from_belt_speed, y = -from_length}
   belt_orientation_per_tick = belt_orientation_per_tick % def.rotation_speed
   local average_seek_ticks = orientation_per_item / (def.rotation_speed + belt_orientation_per_tick)
@@ -292,6 +312,8 @@ local function estimate_inserter_speed(def)
 end
 
 return {
+  get_params = get_params,
+  set_params = set_params,
   get_target_type = get_interactive_type,
   get_interactive_entity = get_interactive_entity,
   set_from_based_on_entity = set_from_based_on_entity,
