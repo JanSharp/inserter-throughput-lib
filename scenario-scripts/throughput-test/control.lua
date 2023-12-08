@@ -922,15 +922,16 @@ local function init_player(player)
   gvs.show_quickbar = false
   gvs.show_shortcut_bar = false
 
+  local player_settings = settings.get_player_settings(player)
   ---@type PlayerDataITL
   local player_data = {
     player = player,
     player_index = player.index,
     per_setup_estimation_labels = {},
     per_setup_deviation_labels = {},
-    left_panel_visible = false,
-    do_update_left_panel = true,
-    iterations_per_left_panel_update = 16,
+    left_panel_visible = player_settings["itl-show-left-panel"].value--[[@as boolean]],
+    do_update_left_panel = player_settings["itl-update-left-panel"].value--[[@as boolean]],
+    iterations_per_left_panel_update = player_settings["itl-iterations-per-left-panel-update"].value--[[@as integer]],
   }
   global.players[player_data.player_index] = player_data
 
@@ -1025,9 +1026,9 @@ script.on_init(function()
     built_setups = {},
     setups_are_built = false,
     is_overview_shown = false,
-    iterations_per_tick = 4,
-    iteration_is_paused = false,
-    pause_iteration_after_no_progress = 256,
+    iterations_per_tick = settings.global["itl-iterations-per-tick"].value--[[@as integer]],
+    pause_iteration_after_no_progress = settings.global["itl-pause-iterations-after-no-progress"].value--[[@as integer]],
+    iteration_is_paused = settings.global["itl-pause-iterations"].value--[[@as boolean]],
   }
   for _, player in pairs(game.players) do
     init_player(player)

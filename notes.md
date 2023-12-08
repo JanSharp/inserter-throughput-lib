@@ -1,13 +1,17 @@
 
 - [x] show completed iterations
+- [ ] show iterations without progress counter
 
-- [x] left panel visibility toggle
-- [x] update left panel toggle
-- [x] left panel update interval slider
-- [x] iterations per tick slider
-- [x] auto stop iterations slider
-- [x] pause iteration toggle
+- [x] show left panel checkbox (per player)
+- [x] update left pane checkbox (per player)
+- [x] iterations per left panel update slider (per player)
+- [x] iterations per tick slider (global)
+- [x] pause iteration after no progress slider (global)
+- [x] pause iteration checkbox (global)
   - [x] tick pause while iteration is paused
+- [ ] seed field (global)
+  - [ ] generate seed button
+  - [ ] reset and use new seed button
 - [ ] map setting for everything above (probably only used on init)
 
 - [ ] write files on completion or on button press
