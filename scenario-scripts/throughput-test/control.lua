@@ -1,6 +1,7 @@
 
 local setups = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.setups")
 local configurations = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.configurations")
+local gui = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.gui")
 local inserter_throughput = require("__inserter-throughput-lib__.api")
 
 ---@class BuiltSetupITL
@@ -26,11 +27,20 @@ local inserter_throughput = require("__inserter-throughput-lib__.api")
 ---@field player LuaPlayer
 ---@field player_index integer
 ---@field progress_bar LuaGuiElement?
+---@field left_panel_visible boolean
+---@field do_update_left_panel boolean
+---@field iterations_per_left_panel_update integer
+---@field iterations_at_last_left_panel_update integer?
 ---@field progress_bar_frame LuaGuiElement?
 ---@field overview_frame LuaGuiElement?
+---@field left_panel_frame LuaGuiElement?
 ---@field average_cubed_deviation_label LuaGuiElement?
 ---@field average_deviation_label LuaGuiElement?
 ---@field max_deviation_label LuaGuiElement?
+---@field completed_iterations_label LuaGuiElement?
+---@field iterations_per_tick_elems SliderElemsITL?
+---@field pause_iteration_after_no_progress_elems SliderElemsITL?
+---@field pause_iteration_checkbox LuaGuiElement?
 ---@field per_setup_estimation_labels table<BuiltSetupITL, LuaGuiElement>
 ---@field per_setup_deviation_labels table<BuiltSetupITL, LuaGuiElement>
 
@@ -44,13 +54,26 @@ local inserter_throughput = require("__inserter-throughput-lib__.api")
 ---@field state_start_tick integer
 ---@field state_finish_tick integer
 ---@field iterations_per_tick integer
+---@field iteration_is_paused boolean
+---@field pause_iteration_after_no_progress integer
 ---@field best_average_cubed_deviation number? @ Uses absolute values.
 ---@field best_average_deviation number? @ Uses absolute values.
 ---@field best_max_deviation number? @ Uses absolute values.
 ---@field changed_param_key string?
 ---@field changed_param_value_before number?
 ---@field changed_param_value_after number?
+---@field completed_interaction_count integer?
+---@field last_successful_iteration integer?
 global = {}
+
+---@class SliderHandlersITL
+---@field on_slider GUIEventHandlerITL
+---@field on_textfield_changed GUIEventHandlerITL
+---@field on_textfield_confirmed GUIEventHandlerITL
+
+---@class SliderElemsITL
+---@field slider LuaGuiElement
+---@field textfield LuaGuiElement
 
 local ev = defines.events
 local format = string.format
@@ -59,8 +82,8 @@ local slowest_belt = 1/0
 for _, belt_speed in pairs(configurations.belt_speeds) do
   slowest_belt = math.min(slowest_belt, belt_speed.belt_speed)
 end
-local warming_up_duration_ticks = math.ceil(10 / slowest_belt) -- The ticks it takes to fill 10 belts.
-local measurement_duration_ticks = 15 * 60
+local warming_up_duration_ticks = math.ceil(4 / slowest_belt) -- The ticks it takes to fill 10 belts.
+local measurement_duration_ticks = 3 * 60
 
 ---@param event EventData|{player_index: integer}
 ---@return PlayerDataITL?
@@ -198,16 +221,8 @@ local function format_deviation(deviation)
 end
 
 ---@param player PlayerDataITL
----@param flow LuaGuiElement
-local function create_overview_table(player, flow)
-  local deep_frame = flow.add{
-    type = "frame",
-    style = "inside_deep_frame",
-  }
-  deep_frame.style.horizontally_stretchable = false
-  deep_frame.style.horizontally_squashable = false
-  deep_frame.style.vertically_stretchable = true
-  local scroll_pane = deep_frame.add{type = "scroll-pane"}
+local function populate_left_panel(player)
+  local scroll_pane = player.left_panel_frame.add{type = "scroll-pane"}
   scroll_pane.style.padding = 4
   local column_count = 7
   local tab = scroll_pane.add{
@@ -269,6 +284,259 @@ local function create_overview_table(player, flow)
 end
 
 ---@param player PlayerDataITL
+local function toggle_left_panel(player)
+  player.left_panel_visible = not player.left_panel_visible
+  if not player.overview_frame or not player.left_panel_frame.valid then return end
+  if player.left_panel_visible then
+    populate_left_panel(player)
+    player.left_panel_frame.visible = true
+  else
+    player.left_panel_frame.visible = false
+    player.left_panel_frame.clear()
+  end
+end
+
+---@param player PlayerDataITL
+---@param flow LuaGuiElement
+local function create_left_panel(player, flow)
+  player.left_panel_frame = flow.add{
+    type = "frame",
+    style = "inside_deep_frame",
+    visible = player.left_panel_visible,
+  }
+  player.left_panel_frame.style.horizontally_stretchable = false
+  player.left_panel_frame.style.horizontally_squashable = false
+  player.left_panel_frame.style.vertically_stretchable = true
+  if not player.left_panel_visible then return end
+  populate_left_panel(player)
+end
+
+---@param parent LuaGuiElement
+---@param name LocalisedString
+---@return LuaGuiElement label
+local function add_row_name(parent, name)
+  local label = gui.create_elem(parent, {
+    type = "label",
+    caption = name,
+    style = "heading_3_label_yellow",
+    style_mods = {
+      right_margin = 16,
+    },
+  })
+  return label
+end
+
+---@param parent LuaGuiElement
+---@param name LocalisedString
+---@return LuaGuiElement value_label
+local function add_label_row(parent, name, value)
+  add_row_name(parent, name)
+  local label = parent.add{
+    type = "label",
+    caption = value,
+    style = "heading_3_label_yellow",
+  }
+  label.style.horizontally_stretchable = true
+  return label
+end
+
+---@param parent LuaGuiElement
+---@param name LocalisedString
+---@param value boolean
+---@param handler function
+---@return LuaGuiElement checkbox
+local function add_checkbox_row(parent, name, value, handler)
+  add_row_name(parent, name)
+  local checkbox = gui.create_elem(parent, {
+    type = "checkbox",
+    state = value,
+    events = {[ev.on_gui_checked_state_changed] = handler},
+  })
+  return checkbox
+end
+
+---@param elems SliderElemsITL
+---@param value integer
+local function set_slider_elems_value(elems, value)
+  elems.slider.slider_value = value
+  elems.textfield.text = format("%d", value)
+  elems.textfield.style = "textbox"
+  elems.textfield.style.width = 64
+end
+
+---@param name string
+---@param handler fun(player: PlayerDataITL, value: integer)
+---@return SliderHandlersITL
+local function register_slider_handlers(name, handler)
+  return {
+    ---@param event EventData.on_gui_value_changed
+    on_slider = gui.register_handler(name.."_slider", function(player, tags, event)
+      local elem = event.element
+      local value = elem.slider_value
+      local tf = elem.parent.slider_textfield
+      tf.text = format("%d", value)
+      tf.style = "textbox"
+      tf.style.width = 64 ---@diagnostic disable-line: need-check-nil
+      handler(player, value)
+    end),
+    ---@param event EventData.on_gui_text_changed
+    on_textfield_changed = gui.register_handler(name.."_tf_changed", function(player, tags, event)
+      local elem = event.element
+      local value = tonumber(elem.text)
+      elem.style = value and "textbox" or "invalid_value_textfield"
+      elem.style.width = 64
+      if not value then return end
+      elem.parent.slider_slider.slider_value = value
+      handler(player, value)
+    end),
+    ---@param event EventData.on_gui_confirmed
+    on_textfield_confirmed = gui.register_handler(name.."_tf_confirmed", function(player, tags, event)
+      local elem = event.element
+      local value = tonumber(elem.text)
+      if value then return end
+      value = tags.default_value
+      elem.text = format("%d", value)
+      elem.style = "textbox"
+      elem.style.width = 64
+      elem.parent.slider_slider.slider_value = value
+      handler(player, value)
+    end),
+  }
+end
+
+---@param parent LuaGuiElement
+---@param name LocalisedString
+---@param value integer
+---@param min integer
+---@param max integer
+---@param handlers SliderHandlersITL
+---@return SliderElemsITL
+local function add_slider_row(parent, name, value, min, max, handlers)
+  add_row_name(parent, name)
+  local _, elems = gui.create_elem(parent, {
+    type = "flow",
+    direction = "horizontal",
+    style_mods = {
+      vertical_align = "center",
+    },
+    children = {
+      {
+        type = "slider",
+        name = "slider_slider",
+        value = value,
+        minimum_value = min,
+        maximum_value = max,
+        events = {[ev.on_gui_value_changed] = handlers.on_slider},
+      },
+      {
+        type = "textfield",
+        name = "slider_textfield",
+        numeric = true,
+        allow_negative = false,
+        text = tostring(value),
+        lose_focus_on_confirm = true,
+        clear_and_focus_on_right_click = true,
+        tags = {default_value = value},
+        events = {
+          [ev.on_gui_text_changed] = handlers.on_textfield_changed,
+          [ev.on_gui_confirmed] = handlers.on_textfield_confirmed,
+        },
+        style_mods = {
+          width = 64,
+        },
+      },
+    },
+  })
+  return {
+    slider = elems.slider_slider,
+    textfield = elems.slider_textfield,
+  }
+end
+
+local on_left_panel_visibility_state_changed = gui.register_handler(
+  "on_left_panel_visibility_state_changed",
+  ---@param event EventData.on_gui_checked_state_changed
+  function(player, tags, event)
+    if player.left_panel_visible == event.element.state then return end
+    toggle_left_panel(player)
+  end
+)
+
+local on_left_panel_update_state_changed = gui.register_handler(
+  "on_left_panel_update_state_changed",
+  ---@param event EventData.on_gui_checked_state_changed
+  function(player, tags, event)
+    player.do_update_left_panel = event.element.state
+  end
+)
+
+local iterations_per_left_panel_update_handlers = register_slider_handlers(
+  "iterations_per_left_panel_update",
+  function(player, value)
+    player.iterations_per_left_panel_update = value
+  end
+)
+
+---@param player PlayerDataITL?
+---@return fun(): PlayerDataITL?
+local function other_players(player)
+  local players = global.players
+  local i = 0
+  return function()
+    i = i + 1
+    local other_player = players[i]
+    if other_player == player then
+      i = i + 1
+      other_player = players[i]
+    end
+    return other_player
+  end
+end
+
+local iterations_per_tick_handlers = register_slider_handlers(
+  "iterations_per_tick",
+  function(player, value)
+    global.iterations_per_tick = value
+    for other_player in other_players(player) do
+      set_slider_elems_value(other_player.iterations_per_tick_elems, value)
+    end
+  end
+)
+
+local pause_iteration_after_no_progress_handlers = register_slider_handlers(
+  "pause_iteration_after_no_progress",
+  function(player, value)
+    global.pause_iteration_after_no_progress = value
+    for other_player in other_players(player) do
+      set_slider_elems_value(other_player.pause_iteration_after_no_progress_elems, value)
+    end
+  end
+)
+
+local set_paused_game
+
+---@param paused boolean
+---@param source_player PlayerDataITL?
+local function set_iteration_is_paused(paused, source_player)
+  global.iteration_is_paused = paused
+  set_paused_game(paused)
+  for player in other_players(source_player) do
+    player.pause_iteration_checkbox.state = paused
+  end
+  if not paused then
+    global.last_successful_iteration = global.completed_interaction_count
+  end
+end
+
+local on_iteration_paused_state_changed = gui.register_handler(
+  "on_iteration_paused_state_changed",
+  ---@param event EventData.on_gui_checked_state_changed
+  function(player, tags, event)
+    set_iteration_is_paused(event.element.state, player)
+  end
+)
+
+---@param player PlayerDataITL
 ---@param frame LuaGuiElement
 local function populate_overview_right_top_panel(player, frame)
   local tab = frame.add{
@@ -277,27 +545,31 @@ local function populate_overview_right_top_panel(player, frame)
   }
   tab.style.horizontally_stretchable = true
 
-  ---@param name string
-  ---@param value string
-  ---@return LuaGuiElement value_label
-  local function add_row(name, value)
-    tab.add{
-      type = "label",
-      caption = name,
-      style = "heading_3_label_yellow",
-    }.style.horizontally_stretchable = true
-    local value_label = tab.add{
-      type = "label",
-      caption = value,
-    }
-    value_label.style.horizontally_stretchable = true
-    return value_label
-  end
-
   player.average_cubed_deviation_label
-    = add_row("Average cubed deviation", format_optional_value(global.best_average_cubed_deviation))
-  player.average_deviation_label = add_row("Average deviation", format_speed(global.best_average_deviation))
-  player.max_deviation_label = add_row("Max deviation", format_speed(global.best_max_deviation))
+    = add_label_row(tab, "Average cubed deviation", format_optional_value(global.best_average_cubed_deviation))
+  player.average_deviation_label
+    = add_label_row(tab, "Average deviation", format_speed(global.best_average_deviation))
+  player.max_deviation_label
+    = add_label_row(tab, "Max deviation", format_speed(global.best_max_deviation))
+  player.completed_iterations_label
+    = add_label_row(tab, "Completed iterations", format("%d", global.completed_interaction_count))
+
+  add_checkbox_row(tab, "Show left panel", player.left_panel_visible, on_left_panel_visibility_state_changed)
+  add_checkbox_row(tab, "Update left panel", player.do_update_left_panel, on_left_panel_update_state_changed)
+  add_slider_row(tab, "Iterations per left panel update",
+    player.iterations_per_left_panel_update, 1, 64,
+    iterations_per_left_panel_update_handlers
+  )
+  player.iterations_per_tick_elems = add_slider_row(tab, "Iterations per tick",
+    global.iterations_per_tick, 1, 32,
+    iterations_per_tick_handlers
+  )
+  player.pause_iteration_after_no_progress_elems = add_slider_row(tab, "Pause iteration after no progress",
+    global.pause_iteration_after_no_progress, 1, 256,
+    pause_iteration_after_no_progress_handlers
+  )
+  player.pause_iteration_checkbox
+    = add_checkbox_row(tab, "Pause iteration", global.iteration_is_paused, on_iteration_paused_state_changed)
 end
 
 ---@param frame LuaGuiElement
@@ -358,8 +630,10 @@ local function create_overview_gui(player)
   }
   content_flow.style.horizontally_stretchable = true
 
-  create_overview_table(player, content_flow)
+  create_left_panel(player, content_flow)
   create_overview_right_panels(player, content_flow)
+
+  player.iterations_at_last_left_panel_update = global.completed_interaction_count
 end
 
 local function create_overview_guis()
@@ -378,12 +652,19 @@ local function update_overview_gui(player)
   player.average_cubed_deviation_label.caption = format_optional_value(global.best_average_cubed_deviation)
   player.average_deviation_label.caption = format_speed(global.best_average_deviation)
   player.max_deviation_label.caption = format_speed(global.best_max_deviation)
+  player.completed_iterations_label.caption = format("%d", global.completed_interaction_count)
 
-  local estimation_labels = player.per_setup_estimation_labels
-  local deviation_labels = player.per_setup_deviation_labels
-  for _, built_setup in pairs(global.built_setups) do
-    estimation_labels[built_setup].caption = format_speed(built_setup.best_estimated_speed)
-    deviation_labels[built_setup].caption = format_deviation(built_setup.best_deviation)
+  local iterations_since_last_update = global.completed_interaction_count - player.iterations_at_last_left_panel_update
+  if player.do_update_left_panel and player.left_panel_visible
+    and iterations_since_last_update >= player.iterations_per_left_panel_update
+  then
+    local estimation_labels = player.per_setup_estimation_labels
+    local deviation_labels = player.per_setup_deviation_labels
+    for _, built_setup in pairs(global.built_setups) do
+      estimation_labels[built_setup].caption = format_speed(built_setup.best_estimated_speed)
+      deviation_labels[built_setup].caption = format_deviation(built_setup.best_deviation)
+    end
+    player.iterations_at_last_left_panel_update = global.completed_interaction_count
   end
 end
 
@@ -402,6 +683,10 @@ local function destroy_overview_gui(player)
   player.average_cubed_deviation_label = nil
   player.average_deviation_label = nil
   player.max_deviation_label = nil
+  player.completed_iterations_label = nil
+  player.iterations_per_tick_elems = nil
+  player.pause_iteration_after_no_progress_elems = nil
+  player.pause_iteration_checkbox = nil
   player.per_setup_estimation_labels = {}
   player.per_setup_deviation_labels = {}
 end
@@ -454,13 +739,16 @@ end
 ---@param average_cubed_deviation number?
 ---@param average_deviation number?
 ---@param max_deviation number?
+---@return boolean success
 local function check_if_param_change_attempt_was_good(average_cubed_deviation, average_deviation, max_deviation)
-  if not average_deviation or not max_deviation or not average_cubed_deviation then return end
+  if not average_deviation or not max_deviation or not average_cubed_deviation then return false end
   if average_cubed_deviation < (global.best_average_cubed_deviation or (1/0)) then -- Good attempt, keep it.
     save_best_attempt(average_cubed_deviation, average_deviation, max_deviation)
+    return true
   else -- Poor attempt, revert it.
     global.estimation_params[global.changed_param_key] = global.changed_param_value_before
     inserter_throughput.set_params(global.estimation_params)
+    return false
   end
 end
 
@@ -519,6 +807,15 @@ local function unpause_game()
   game.tick_paused = false
 end
 
+---@param paused boolean
+function set_paused_game(paused)
+  if paused then
+    pause_game()
+  else
+    unpause_game()
+  end
+end
+
 local function built_setups_have_belts()
   for _, built_setup in pairs(global.built_setups) do
     local parsed_setup = built_setup.parsed_setup
@@ -542,7 +839,14 @@ local function switch_to_idle(keep_built_setups, keep_overviews)
   pause_game()
   destroy_progress_bars()
   if not keep_built_setups then ensure_all_setups_are_destroyed() end
-  if not keep_overviews then ensure_overviews_are_hidden() end
+  if not keep_overviews then
+    ensure_overviews_are_hidden()
+    global.completed_interaction_count = nil
+    global.last_successful_iteration = nil
+    for _, player in pairs(global.players) do
+      player.iterations_at_last_left_panel_update = nil
+    end
+  end
   global.state_start_tick = nil
   global.state_finish_tick = nil
   global.state = "idle"
@@ -577,7 +881,9 @@ local function switch_to_iterating()
   if global.state == "iterating" then return end
   switch_to_idle(false, true)
   global.state = "iterating"
-  unpause_game()
+  global.completed_interaction_count = 0
+  global.last_successful_iteration = 0
+  set_paused_game(global.iteration_is_paused)
   ensure_overviews_are_shown()
 end
 
@@ -622,6 +928,9 @@ local function init_player(player)
     player_index = player.index,
     per_setup_estimation_labels = {},
     per_setup_deviation_labels = {},
+    left_panel_visible = false,
+    do_update_left_panel = true,
+    iterations_per_left_panel_update = 16,
   }
   global.players[player_data.player_index] = player_data
 
@@ -654,11 +963,21 @@ local function update_measuring(tick)
 end
 
 local function update_iterating()
+  if global.iteration_is_paused then return end
   for _ = 1, global.iterations_per_tick do
     randomize_params()
     estimate_all_inserter_speeds()
-    check_if_param_change_attempt_was_good(calculate_deviations())
-    -- global.completed_interaction_count = global.completed_interaction_count + 1
+    local success = check_if_param_change_attempt_was_good(calculate_deviations())
+    global.completed_interaction_count = global.completed_interaction_count + 1
+    if success then
+      global.last_successful_iteration = global.completed_interaction_count
+    else
+      local iterations_since_last_success = global.completed_interaction_count - global.last_successful_iteration
+      if iterations_since_last_success >= global.pause_iteration_after_no_progress then
+        set_iteration_is_paused(true)
+        break
+      end
+    end
   end
   update_overview_guis()
 end
@@ -679,6 +998,8 @@ script.on_event(ev.on_tick, function(event)
     update_iterating()
   end
 end)
+
+gui.register_for_all_gui_events()
 
 script.on_event(ev.on_player_created, function(event)
   local player = game.get_player(event.player_index) ---@cast player -nil
@@ -705,6 +1026,8 @@ script.on_init(function()
     setups_are_built = false,
     is_overview_shown = false,
     iterations_per_tick = 4,
+    iteration_is_paused = false,
+    pause_iteration_after_no_progress = 256,
   }
   for _, player in pairs(game.players) do
     init_player(player)
