@@ -3,6 +3,7 @@ local setups = require("__inserter-throughput-lib__.scenario-scripts.throughput-
 local configurations = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.configurations")
 local gui = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.gui")
 local inserter_throughput = require("__inserter-throughput-lib__.api")
+local params_util = require("__inserter-throughput-lib__.params_util")
 
 ---@class BuiltSetupITL
 ---@field parsed_setup ParsedSetupITL
@@ -14,7 +15,6 @@ local inserter_throughput = require("__inserter-throughput-lib__.api")
 ---@field average_total_ticks number
 ---@field was_valid_for_read boolean
 ---@field cycle_start integer
----@field average_speed_elem LuaGuiElement
 ---@field average_speed number? @ items/s. When `nil` then the inserter was either way to slow or it never swung.
 ---@field estimated_speed number? @ items/s
 ---items/s. How far off estimated speed is from average measured speed. `nil` when `average_speed` is `nil`.
@@ -47,7 +47,6 @@ local inserter_throughput = require("__inserter-throughput-lib__.api")
 ---@class GlobalDataITL
 ---@field state "idle"|"warming_up"|"measuring"|"iterating"|"done"
 ---@field players table<integer, PlayerDataITL>
----@field estimation_params table<string, number>
 ---@field built_setups BuiltSetupITL[] @ Can still contain data even when `setups_are_built` is `false`.
 ---@field setups_are_built boolean @ As in all the entities (still) exist.
 ---@field is_overview_shown boolean
@@ -56,6 +55,10 @@ local inserter_throughput = require("__inserter-throughput-lib__.api")
 ---@field iterations_per_tick integer
 ---@field iteration_is_paused boolean
 ---@field pause_iteration_after_no_progress integer
+---@field random_hash integer
+---@field seed integer
+---@field rng LuaRandomGenerator?
+---@field estimation_params ParamsITL?
 ---@field best_average_cubed_deviation number? @ Uses absolute values.
 ---@field best_average_deviation number? @ Uses absolute values.
 ---@field best_max_deviation number? @ Uses absolute values.
@@ -82,8 +85,8 @@ local slowest_belt = 1/0
 for _, belt_speed in pairs(configurations.belt_speeds) do
   slowest_belt = math.min(slowest_belt, belt_speed.belt_speed)
 end
-local warming_up_duration_ticks = math.ceil(4 / slowest_belt) -- The ticks it takes to fill 10 belts.
-local measurement_duration_ticks = 3 * 60
+local warming_up_duration_ticks = math.ceil(10 / slowest_belt) -- The ticks it takes to fill 10 belts.
+local measurement_duration_ticks = 20 * 60
 
 ---@param event EventData|{player_index: integer}
 ---@return PlayerDataITL?
@@ -311,6 +314,109 @@ local function create_left_panel(player, flow)
   populate_left_panel(player)
 end
 
+local set_iteration_is_paused
+local switch_to_idle
+local switch_to_iterating
+
+---@param seed integer
+local function set_seed(seed)
+  global.seed = seed
+  if global.state == "iterating" then
+    switch_to_idle()
+    set_iteration_is_paused(false)
+    switch_to_iterating()
+  end
+end
+
+---@param text string
+---@return integer?
+local function try_parse_seed_text(text)
+  local value = tonumber(text)
+  if not value or value >= 2^32 then return nil end
+  return value
+end
+
+local on_seed_text_changed = gui.register_handler(
+  "on_seed_text_changed",
+  ---@param event EventData.on_gui_text_changed
+  function(player, tags, event)
+    local elem = event.element
+    local value = try_parse_seed_text(elem.text)
+    if value then
+      elem.style = "long_number_textfield"
+    else
+      elem.style = "invalid_value_textfield"
+      elem.style.width = 150
+    end
+    elem.style.font = "default-bold"
+  end
+)
+
+local on_seed_confirmed = gui.register_handler(
+  "on_seed_confirmed",
+  ---@param event EventData.on_gui_confirmed
+  function(player, tags, event)
+    local elem = event.element
+    local value = try_parse_seed_text(elem.text)
+    if not value then return end
+    set_seed(value)
+  end
+)
+
+local on_seed_shuffle_click = gui.register_handler(
+  "on_seed_shuffle_click",
+  ---@param event EventData.on_gui_click
+  function(player, tags, event)
+    set_seed(global.random_hash)
+  end
+)
+
+---@param player PlayerDataITL
+---@param frame LuaGuiElement
+local function create_top_right_subheader_frame(player, frame)
+  gui.create_elem(frame, {
+    type = "frame",
+    style = "subheader_frame",
+    direction = "horizontal",
+    style_mods = {horizontally_stretchable = true},
+    children = {
+      {
+        type = "empty-widget",
+        style_mods = {horizontally_stretchable = true},
+      },
+      {
+        type = "label",
+        style = "caption_label",
+        caption = "Seed",
+      },
+      {
+        type = "textfield",
+        style = "long_number_textfield",
+        text = format("%d", global.seed),
+        numeric = true,
+        allow_negative = false,
+        clear_and_focus_on_right_click = true,
+        lose_focus_on_confirm = false, -- Just being explicit.
+        events = {
+          [ev.on_gui_text_changed] = on_seed_text_changed,
+          [ev.on_gui_confirmed] = on_seed_confirmed,
+        },
+      },
+      {
+        type = "sprite-button",
+        style = "tool_button",
+        sprite = "utility/shuffle",
+        tooltip = "Generate a new seed and instantly reset and restart iterations with that seed.",
+        style_mods = {
+          top_margin = 1,
+          bottom_margin = -1,
+        },
+        events = {[ev.on_gui_click] = on_seed_shuffle_click},
+      },
+    },
+  })
+end
+
 ---@param parent LuaGuiElement
 ---@param name LocalisedString
 ---@return LuaGuiElement label
@@ -511,8 +617,9 @@ local set_paused_game
 
 ---@param paused boolean
 ---@param source_player PlayerDataITL?
-local function set_iteration_is_paused(paused, source_player)
+function set_iteration_is_paused(paused, source_player)
   global.iteration_is_paused = paused
+  if global.state ~= "iterating" then return end
   set_paused_game(paused)
   for player in other_players(source_player) do
     player.pause_iteration_checkbox.state = paused
@@ -533,7 +640,13 @@ local on_iteration_paused_state_changed = gui.register_handler(
 ---@param player PlayerDataITL
 ---@param frame LuaGuiElement
 local function populate_overview_right_top_panel(player, frame)
-  local tab = frame.add{
+  create_top_right_subheader_frame(player, frame)
+  local flow_under_subheader = frame.add{
+    type = "flow",
+    style = "vertical_flow_under_subheader",
+    direction = "vertical",
+  }
+  local tab = flow_under_subheader.add{
     type = "table",
     column_count = 2,
   }
@@ -584,7 +697,7 @@ local function create_overview_right_panels(player, content_flow)
   local top_frame = panel_flow.add{
     type = "frame",
     direction = "vertical",
-    style = "inside_shallow_frame_with_padding",
+    style = "inside_shallow_frame",
   }
   top_frame.style.horizontally_stretchable = true
   top_frame.style.vertically_stretchable = false
@@ -708,13 +821,13 @@ local function randomize_params()
   for key in pairs(global.estimation_params) do
     keys[#keys+1] = key
   end
-  local key = keys[math.random(#keys)]
+  local key = keys[global.rng(#keys)]
   local value = global.estimation_params[key]
-  global.estimation_params[key] = value + ((math.random() - 0.5) * 0.1)
+  global.estimation_params[key] = value + ((global.rng() - 0.5) * 0.1)
   global.changed_param_key = key
   global.changed_param_value_before = value
   global.changed_param_value_after = global.estimation_params[key]
-  inserter_throughput.set_params(global.estimation_params)
+  params_util.set_params(global.estimation_params)
 end
 
 ---@param average_cubed_deviation number
@@ -741,7 +854,7 @@ local function check_if_param_change_attempt_was_good(average_cubed_deviation, a
     return true
   else -- Poor attempt, revert it.
     global.estimation_params[global.changed_param_key] = global.changed_param_value_before
-    inserter_throughput.set_params(global.estimation_params)
+    params_util.set_params(global.estimation_params)
     return false
   end
 end
@@ -810,6 +923,17 @@ function set_paused_game(paused)
   end
 end
 
+local function generate_initial_estimation_params()
+  ---@type ParamsITL
+  local params = {}
+  for key, min in pairs(params_util.initial_min) do
+    local max = params_util.initial_max[key]
+    params[key] = min + global.rng() * (max - min)
+  end
+  global.estimation_params = params
+  params_util.set_params(params)
+end
+
 local function built_setups_have_belts()
   for _, built_setup in pairs(global.built_setups) do
     local parsed_setup = built_setup.parsed_setup
@@ -828,17 +952,31 @@ end
 
 ---@param keep_built_setups boolean?
 ---@param keep_overviews boolean?
-local function switch_to_idle(keep_built_setups, keep_overviews)
+function switch_to_idle(keep_built_setups, keep_overviews)
   if global.state == "idle" then return end
   pause_game()
   destroy_progress_bars()
   if not keep_built_setups then ensure_all_setups_are_destroyed() end
   if not keep_overviews then
     ensure_overviews_are_hidden()
+    global.rng = nil
+    global.estimation_params = nil
+    global.best_average_cubed_deviation = nil
+    global.best_average_deviation = nil
+    global.best_max_deviation = nil
+    global.changed_param_key = nil
+    global.changed_param_value_before = nil
+    global.changed_param_value_after = nil
     global.completed_interaction_count = nil
     global.last_successful_iteration = nil
     for _, player in pairs(global.players) do
       player.iterations_at_last_left_panel_update = nil
+    end
+    for _, built_setup in pairs(global.built_setups) do
+      built_setup.estimated_speed = nil
+      built_setup.deviation = nil
+      built_setup.best_estimated_speed = nil
+      built_setup.best_deviation = nil
     end
   end
   global.state_start_tick = nil
@@ -871,10 +1009,12 @@ function switch_to_measuring()
   init_state_with_progress_bar(measurement_duration_ticks) -- After state has been set.
 end
 
-local function switch_to_iterating()
+function switch_to_iterating()
   if global.state == "iterating" then return end
   switch_to_idle(false, true)
   global.state = "iterating"
+  global.rng = game.create_random_generator(global.seed)
+  generate_initial_estimation_params()
   global.completed_interaction_count = 0
   global.last_successful_iteration = 0
   set_paused_game(global.iteration_is_paused)
@@ -996,6 +1136,12 @@ end)
 
 gui.register_for_all_gui_events()
 
+script.on_event(ev.on_gui_click, function(event)
+  global.random_hash = (global.random_hash * 37 + event.tick) % (2^32)
+  global.random_hash = (global.random_hash * 37 + game.ticks_played) % (2^32)
+  gui.handle_gui_event(event)
+end)
+
 script.on_event(ev.on_player_created, function(event)
   local player = game.get_player(event.player_index) ---@cast player -nil
   init_player(player)
@@ -1013,10 +1159,8 @@ script.on_init(function()
   global = {
     state = (nil)--[[@as string]],
     players = {},
-    -- TODO: randomize the starting values using the same rng instance as all future randomization...
-    -- with fixed ranges for each parameter. That way a given seed will always behave the same, no matter what
-    -- default parameters are currently defined in the inserter throughput api file.
-    estimation_params = inserter_throughput.get_params(),
+    random_hash = 23,
+    seed = settings.global["itl-seed"].value--[[@as integer]],
     built_setups = {},
     setups_are_built = false,
     is_overview_shown = false,

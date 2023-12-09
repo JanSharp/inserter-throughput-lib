@@ -9,10 +9,10 @@
 - [x] pause iteration after no progress slider (global)
 - [x] pause iteration checkbox (global)
   - [x] tick pause while iteration is paused
-- [ ] seed field (global)
-  - [ ] generate seed button
-  - [ ] reset and use new seed button
-- [ ] map setting for everything above (probably only used on init)
+- [x] seed field (global)
+  - [x] generate seed button
+  - [x] reset and use new seed button
+- [x] map setting for everything above (probably only used on init)
 
 - [ ] write files on completion or on button press
 - [ ] file with params in table form

@@ -57,4 +57,15 @@ data:extend({
     setting_type = "runtime-global",
     default_value = false,
   },
+  {
+    type = "int-setting",
+    name = "itl-seed",
+    localised_name = "Seed",
+    localised_description = "Only used on init.",
+    order = "g",
+    setting_type = "runtime-global",
+    default_value = 123456,
+    minimum_value = 1,
+    maximum_value = 2^32-1,
+  },
 })

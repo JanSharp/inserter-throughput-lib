@@ -1,5 +1,6 @@
 
 local vec = require("__inserter-throughput-lib__.vector")
+local params_util = require("__inserter-throughput-lib__.params_util")
 
 local math_abs = math.abs
 local math_ceil = math.ceil
@@ -105,25 +106,19 @@ do
   end
 end
 
-local extension_belt_offset = 0.5
-local rotation_belt_offset = 0.5
-local item_length_for_rotation = 0.25
+local extension_belt_offset ---@type number
+local rotation_belt_offset ---@type number
+local item_length_for_rotation ---@type number
 
----@return table<string, number>
-local function get_params()
-  return {
-    extension_belt_offset = extension_belt_offset,
-    rotation_belt_offset = rotation_belt_offset,
-    item_length_for_rotation = item_length_for_rotation,
-  }
-end
-
----@param params table<string, number>
-local function set_params(params)
+---@param params ParamsITL
+local function update_params(params)
   extension_belt_offset = params.extension_belt_offset
   rotation_belt_offset = params.rotation_belt_offset
   item_length_for_rotation = params.item_length_for_rotation
 end
+
+params_util.on_params_set(update_params)
+update_params(params_util.get_params())
 
 ---Sets the `from_*` fields in def based on what it finds at the given position.\
 ---Does **not** set `from_vector` (because how would it).
@@ -312,8 +307,6 @@ local function estimate_inserter_speed(def)
 end
 
 return {
-  get_params = get_params,
-  set_params = set_params,
   get_target_type = get_interactive_type,
   get_interactive_entity = get_interactive_entity,
   set_from_based_on_entity = set_from_based_on_entity,
