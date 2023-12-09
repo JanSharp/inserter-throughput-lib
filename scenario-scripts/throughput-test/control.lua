@@ -360,8 +360,7 @@ end
 local function set_slider_elems_value(elems, value)
   elems.slider.slider_value = value
   elems.textfield.text = format("%d", value)
-  elems.textfield.style = "textbox"
-  elems.textfield.style.width = 64
+  elems.textfield.style = "short_number_textfield"
 end
 
 ---@param name string
@@ -375,16 +374,14 @@ local function register_slider_handlers(name, handler)
       local value = elem.slider_value
       local tf = elem.parent.slider_textfield
       tf.text = format("%d", value)
-      tf.style = "textbox"
-      tf.style.width = 64 ---@diagnostic disable-line: need-check-nil
+      tf.style = "short_number_textfield"
       handler(player, value)
     end),
     ---@param event EventData.on_gui_text_changed
     on_textfield_changed = gui.register_handler(name.."_tf_changed", function(player, tags, event)
       local elem = event.element
       local value = tonumber(elem.text)
-      elem.style = value and "textbox" or "invalid_value_textfield"
-      elem.style.width = 64
+      elem.style = value and "short_number_textfield" or "invalid_value_short_number_textfield"
       if not value then return end
       elem.parent.slider_slider.slider_value = value
       handler(player, value)
@@ -396,8 +393,7 @@ local function register_slider_handlers(name, handler)
       if value then return end
       value = tags.default_value
       elem.text = format("%d", value)
-      elem.style = "textbox"
-      elem.style.width = 64
+      elem.style = "short_number_textfield"
       elem.parent.slider_slider.slider_value = value
       handler(player, value)
     end),
@@ -431,6 +427,7 @@ local function add_slider_row(parent, name, value, min, max, handlers)
       {
         type = "textfield",
         name = "slider_textfield",
+        style = "short_number_textfield",
         numeric = true,
         allow_negative = false,
         text = tostring(value),
@@ -440,9 +437,6 @@ local function add_slider_row(parent, name, value, min, max, handlers)
         events = {
           [ev.on_gui_text_changed] = handlers.on_textfield_changed,
           [ev.on_gui_confirmed] = handlers.on_textfield_confirmed,
-        },
-        style_mods = {
-          width = 64,
         },
       },
     },
