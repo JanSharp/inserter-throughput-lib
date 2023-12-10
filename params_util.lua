@@ -1,17 +1,14 @@
 
----@class ParamsITL
-local current = {
-  extension_belt_offset = 0.5,
-  rotation_belt_offset = 0.5,
-  item_length_for_rotation = 0.25,
-}
+local current = require("__inserter-throughput-lib__.magic")
 
+---@class ParamsITL
 local initial_min = {
   extension_belt_offset = 0.1,
   rotation_belt_offset = 0.1,
   item_length_for_rotation = 0.05,
 }
 
+---@type ParamsITL
 local initial_max = {
   extension_belt_offset = 1,
   rotation_belt_offset = 1,
