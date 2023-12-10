@@ -14,10 +14,9 @@
   - [x] reset and use new seed button
 - [x] map setting for everything above (probably only used on init)
 
-- [ ] write files on completion or on button press
-- [ ] file with params in table form
-- [ ] file with params in local vars form
-- [ ] params are formatted using %a with %.6f as comments at the end of the line
-- [ ] file with human readable report
+- [x] write files on auto pause
+- [x] write files on button press
+- [x] human readable header
+- [x] params in table form, formatted using %a with %.9f as comments at the end of the line
 
 - [ ] maybe add weighting to prefer negative deviations over positive ones

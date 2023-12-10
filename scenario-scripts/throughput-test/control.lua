@@ -86,8 +86,8 @@ local slowest_belt = 1/0
 for _, belt_speed in pairs(configurations.belt_speeds) do
   slowest_belt = math.min(slowest_belt, belt_speed.belt_speed)
 end
-local warming_up_duration_ticks = math.ceil(4 / slowest_belt) -- The ticks it takes to fill 10 belts.
-local measurement_duration_ticks = 3 * 60
+local warming_up_duration_ticks = math.ceil(10 / slowest_belt) -- The ticks it takes to fill 10 belts.
+local measurement_duration_ticks = 20 * 60
 
 ---@param event EventData|{player_index: integer}
 ---@return PlayerDataITL?
@@ -659,6 +659,38 @@ local function auto_pause_progress()
   return math.min(1, iterations_since_last_success() / global.pause_iteration_after_no_progress)
 end
 
+local function write_report_file()
+  local out = {
+    "\n",
+    format("-- seed:                    %d\n", global.seed),
+    format("-- setup count:             %d\n", #global.built_setups),
+    format("-- average cubed deviation: %s\n", format_optional_value(global.best_average_cubed_deviation)),
+    format("-- average deviation:       %s\n", format_speed(global.best_average_deviation)),
+    format("-- max deviation:           %s\n", format_speed(global.best_max_deviation)),
+    format("-- iterations:              %d\n", global.completed_interaction_count),
+    "\n",
+    "---cSpell:disable\n",
+    "\n",
+    "return {\n",
+  }
+  local c = #out
+  for key, value in pairs(global.estimation_params) do
+    c=c+1;out[c] = format("  %s = %a, -- %.9f\n", key, value, value)
+  end
+  c=c+1;out[c] = "}\n"
+  local report = table.concat(out)
+  game.write_file("itl/latest_report.lua", report)
+  game.write_file(format("itl/report_%010d.lua", global.seed), report)
+end
+
+local on_generate_report_files_click = gui.register_handler(
+  "on_generate_report_files_click",
+  ---@param event EventData.on_gui_click
+  function(player, tags, event)
+    write_report_file()
+  end
+)
+
 ---@param player PlayerDataITL
 ---@param frame LuaGuiElement
 local function populate_overview_right_top_panel(player, frame)
@@ -702,6 +734,13 @@ local function populate_overview_right_top_panel(player, frame)
     global.pause_iteration_after_no_progress, 1, 256,
     pause_iteration_after_no_progress_handlers
   )
+
+  gui.create_elem(flow_under_subheader, {
+    type = "button",
+    caption = "Generate report files",
+    tooltip = "Writes files to script-output",
+    events = {[ev.on_gui_click] = on_generate_report_files_click},
+  })
 end
 
 ---@param frame LuaGuiElement
@@ -1139,6 +1178,7 @@ local function update_iterating()
     else
       if iterations_since_last_success() >= global.pause_iteration_after_no_progress then
         set_iteration_is_paused(true)
+        write_report_file()
         break
       end
     end
