@@ -683,6 +683,11 @@ local function populate_overview_right_top_panel(player, frame)
   player.completed_iterations_label
     = add_label_row(tab, "Completed iterations", format("%d", global.completed_interaction_count))
 
+  player.pause_iteration_checkbox
+    = add_checkbox_row(tab, "Pause iteration", global.iteration_is_paused, on_iteration_paused_state_changed)
+  player.auto_pause_iterations_progress_bar
+    = add_progress_bar_row(tab, "Auto pause progress", auto_pause_progress())
+
   add_checkbox_row(tab, "Show left panel", player.left_panel_visible, on_left_panel_visibility_state_changed)
   add_checkbox_row(tab, "Update left panel", player.do_update_left_panel, on_left_panel_update_state_changed)
   add_slider_row(tab, "Iterations per left panel update",
@@ -697,10 +702,6 @@ local function populate_overview_right_top_panel(player, frame)
     global.pause_iteration_after_no_progress, 1, 256,
     pause_iteration_after_no_progress_handlers
   )
-  player.pause_iteration_checkbox
-    = add_checkbox_row(tab, "Pause iteration", global.iteration_is_paused, on_iteration_paused_state_changed)
-  player.auto_pause_iterations_progress_bar
-    = add_progress_bar_row(tab, "Auto pause progress", auto_pause_progress())
 end
 
 ---@param frame LuaGuiElement
