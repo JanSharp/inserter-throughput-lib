@@ -656,7 +656,7 @@ local function iterations_since_last_success()
 end
 
 local function auto_pause_progress()
-  return iterations_since_last_success() / global.pause_iteration_after_no_progress
+  return math.min(1, iterations_since_last_success() / global.pause_iteration_after_no_progress)
 end
 
 ---@param player PlayerDataITL
