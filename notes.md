@@ -1,6 +1,6 @@
 
 - [x] show completed iterations
-- [ ] show iterations without progress counter
+- [x] show iterations without progress progressbar
 
 - [x] show left panel checkbox (per player)
 - [x] update left pane checkbox (per player)

@@ -41,6 +41,7 @@ local params_util = require("__inserter-throughput-lib__.params_util")
 ---@field iterations_per_tick_elems SliderElemsITL?
 ---@field pause_iteration_after_no_progress_elems SliderElemsITL?
 ---@field pause_iteration_checkbox LuaGuiElement?
+---@field auto_pause_iterations_progress_bar LuaGuiElement?
 ---@field per_setup_estimation_labels table<BuiltSetupITL, LuaGuiElement>
 ---@field per_setup_deviation_labels table<BuiltSetupITL, LuaGuiElement>
 
@@ -85,8 +86,8 @@ local slowest_belt = 1/0
 for _, belt_speed in pairs(configurations.belt_speeds) do
   slowest_belt = math.min(slowest_belt, belt_speed.belt_speed)
 end
-local warming_up_duration_ticks = math.ceil(10 / slowest_belt) -- The ticks it takes to fill 10 belts.
-local measurement_duration_ticks = 20 * 60
+local warming_up_duration_ticks = math.ceil(4 / slowest_belt) -- The ticks it takes to fill 10 belts.
+local measurement_duration_ticks = 3 * 60
 
 ---@param event EventData|{player_index: integer}
 ---@return PlayerDataITL?
@@ -553,6 +554,19 @@ local function add_slider_row(parent, name, value, min, max, handlers)
   }
 end
 
+---@param parent LuaGuiElement
+---@param name LocalisedString
+---@param value number
+local function add_progress_bar_row(parent, name, value)
+  add_row_name(parent, name)
+  local progress_bar = gui.create_elem(parent, {
+    type = "progressbar",
+    value = value,
+    style_mods = {width = 244},
+  })
+  return progress_bar
+end
+
 local on_left_panel_visibility_state_changed = gui.register_handler(
   "on_left_panel_visibility_state_changed",
   ---@param event EventData.on_gui_checked_state_changed
@@ -637,6 +651,14 @@ local on_iteration_paused_state_changed = gui.register_handler(
   end
 )
 
+local function iterations_since_last_success()
+  return global.completed_interaction_count - global.last_successful_iteration
+end
+
+local function auto_pause_progress()
+  return iterations_since_last_success() / global.pause_iteration_after_no_progress
+end
+
 ---@param player PlayerDataITL
 ---@param frame LuaGuiElement
 local function populate_overview_right_top_panel(player, frame)
@@ -677,6 +699,8 @@ local function populate_overview_right_top_panel(player, frame)
   )
   player.pause_iteration_checkbox
     = add_checkbox_row(tab, "Pause iteration", global.iteration_is_paused, on_iteration_paused_state_changed)
+  player.auto_pause_iterations_progress_bar
+    = add_progress_bar_row(tab, "Auto pause progress", auto_pause_progress())
 end
 
 ---@param frame LuaGuiElement
@@ -760,6 +784,7 @@ local function update_overview_gui(player)
   player.average_deviation_label.caption = format_speed(global.best_average_deviation)
   player.max_deviation_label.caption = format_speed(global.best_max_deviation)
   player.completed_iterations_label.caption = format("%d", global.completed_interaction_count)
+  player.auto_pause_iterations_progress_bar.value = auto_pause_progress()
 
   local iterations_since_last_update = global.completed_interaction_count - player.iterations_at_last_left_panel_update
   if player.do_update_left_panel and player.left_panel_visible
@@ -794,6 +819,7 @@ local function destroy_overview_gui(player)
   player.iterations_per_tick_elems = nil
   player.pause_iteration_after_no_progress_elems = nil
   player.pause_iteration_checkbox = nil
+  player.auto_pause_iterations_progress_bar = nil
   player.per_setup_estimation_labels = {}
   player.per_setup_deviation_labels = {}
 end
@@ -1107,8 +1133,7 @@ local function update_iterating()
     if success then
       global.last_successful_iteration = global.completed_interaction_count
     else
-      local iterations_since_last_success = global.completed_interaction_count - global.last_successful_iteration
-      if iterations_since_last_success >= global.pause_iteration_after_no_progress then
+      if iterations_since_last_success() >= global.pause_iteration_after_no_progress then
         set_iteration_is_paused(true)
         break
       end
