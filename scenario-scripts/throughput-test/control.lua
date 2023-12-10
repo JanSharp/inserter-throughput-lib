@@ -1048,6 +1048,9 @@ function switch_to_iterating()
   ensure_overviews_are_shown()
 end
 
+---NOTE: This is currently unused. The idea was that once iteration has finished it would switch to this state,
+---however as it is right now it's never truly finished. It just pauses automatically, however can be resumed
+---at a press of a button.
 local function switch_to_done()
   if global.state == "done" then return end
   switch_to_idle(false, true)
