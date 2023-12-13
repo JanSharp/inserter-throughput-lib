@@ -1145,7 +1145,6 @@ end
 
 ---@param tick integer
 local function update_measuring(tick)
-  update_progress_bars()
   for _, built_setup in pairs(global.built_setups) do
     local valid_for_read = built_setup.held_stack.valid_for_read
     if valid_for_read ~= built_setup.was_valid_for_read then
