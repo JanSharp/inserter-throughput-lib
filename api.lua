@@ -5,6 +5,7 @@ local params_util = require("__inserter-throughput-lib__.params_util")
 local math_abs = math.abs
 local math_ceil = math.ceil
 local math_floor = math.floor
+local math_min = math.min
 local math_max = math.max
 
 ---@class InserterThroughputDefinition
@@ -319,6 +320,19 @@ local function estimate_extra_pickup_ticks(def, from_length)
   return math_max(def.stack_size, ticks_per_item * def.stack_size)
 end
 
+---@param items_per_second number
+---@param def InserterThroughputDefinition
+---@return number items_per_second
+local function cap_to_belt_speed(items_per_second, def)
+  if def.to_type == "belt" then
+    items_per_second = math_min(60 / (0.25 / def.to_belt_speed), items_per_second)
+  end
+  if def.from_type == "belt" then
+    items_per_second = math_min(60 / (0.125 / def.from_belt_speed), items_per_second)
+  end
+  return items_per_second
+end
+
 ---@param def InserterThroughputDefinition
 ---@return number items_per_second
 local function estimate_inserter_speed(def)
@@ -335,7 +349,7 @@ local function estimate_inserter_speed(def)
   local extra_drop_ticks = calculate_extra_drop_ticks(def)
   local extra_pickup_ticks = estimate_extra_pickup_ticks(def, from_length)
   local total_ticks = (ticks_per_swing * 2) + extra_drop_ticks + extra_pickup_ticks
-  return 60 / total_ticks * def.stack_size
+  return cap_to_belt_speed(60 / total_ticks * def.stack_size, def)
 end
 
 return {
