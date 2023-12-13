@@ -53,6 +53,9 @@ local params_util = require("__inserter-throughput-lib__.params_util")
 ---@field is_overview_shown boolean
 ---@field state_start_tick integer
 ---@field state_finish_tick integer
+---@field toggle_measurement_pause_tick integer
+---@field current_measurement_pause_index integer
+---@field are_inserters_active boolean
 ---@field iterations_per_tick integer
 ---@field iteration_is_paused boolean
 ---@field pause_iteration_after_no_progress integer
@@ -87,7 +90,22 @@ for _, belt_speed in pairs(configurations.belt_speeds) do
   slowest_belt = math.min(slowest_belt, belt_speed.belt_speed)
 end
 local warming_up_duration_ticks = math.ceil(10 / slowest_belt) -- The ticks it takes to fill 10 belts.
-local measurement_duration_ticks = 20 * 60
+local measurement_duration_between_pauses = 15 * 60
+local measurement_pause_durations = {
+  1,
+  2,
+  3,
+  5,
+  7,
+  13,
+  17,
+  19,
+  29,
+}
+local measurement_duration_ticks = measurement_duration_between_pauses * (#measurement_pause_durations + 1)
+for _, pause_duration in pairs(measurement_pause_durations) do
+  measurement_duration_ticks = measurement_duration_ticks + pause_duration
+end
 
 ---@param event EventData|{player_index: integer}
 ---@return PlayerDataITL?
@@ -930,11 +948,13 @@ local function set_active_of_all_inserters(active)
   for _, built_setup in pairs(global.built_setups) do
     built_setup.inserter.active = active
   end
+  global.are_inserters_active = active
 end
 
 local function ensure_all_setups_are_built()
   if global.setups_are_built then return end
   global.setups_are_built = true
+  global.are_inserters_active = true
   global.built_setups = {}
   setups.build_setups{{pickup_type = "belt"}}
   local nauvis = game.surfaces["nauvis"]
@@ -967,6 +987,7 @@ end
 local function ensure_all_setups_are_destroyed()
   if not global.setups_are_built then return end
   global.setups_are_built = false
+  global.are_inserters_active = nil
   game.surfaces["nauvis"].clear()
 end
 
@@ -1047,6 +1068,8 @@ function switch_to_idle(keep_built_setups, keep_overviews)
   end
   global.state_start_tick = nil
   global.state_finish_tick = nil
+  global.toggle_measurement_pause_tick = nil
+  global.current_measurement_pause_index = nil
   global.state = "idle"
 end
 
@@ -1073,6 +1096,8 @@ function switch_to_measuring()
   ensure_all_setups_are_built()
   set_active_of_all_inserters(true)
   init_state_with_progress_bar(measurement_duration_ticks) -- After state has been set.
+  global.toggle_measurement_pause_tick = game.tick + measurement_duration_between_pauses
+  global.current_measurement_pause_index = 1
 end
 
 function switch_to_iterating()
@@ -1145,6 +1170,20 @@ end
 
 ---@param tick integer
 local function update_measuring(tick)
+  if tick == global.toggle_measurement_pause_tick then
+    set_active_of_all_inserters(not global.are_inserters_active)
+    global.toggle_measurement_pause_tick = global.are_inserters_active
+      and (tick + measurement_duration_between_pauses)
+      or (tick + measurement_pause_durations[global.current_measurement_pause_index])
+    if not global.are_inserters_active then
+      global.current_measurement_pause_index = global.current_measurement_pause_index + 1
+      for _, built_setup in pairs(global.built_setups) do
+        built_setup.cycle_start = -1
+      end
+    end
+  end
+  if not global.are_inserters_active then return end
+
   for _, built_setup in pairs(global.built_setups) do
     local valid_for_read = built_setup.held_stack.valid_for_read
     if valid_for_read ~= built_setup.was_valid_for_read then
