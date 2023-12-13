@@ -54,6 +54,7 @@ result is extension influence
 the shorter the pickup vector, the more the opposite influences bleed into each other
 
 
+- [ ] something worth an attempt is having different belt speed multiplier parameters for when it is backed up vs not backed up. It's not great but it'd be better than nothing
 
 
 sine wave the belt speed
