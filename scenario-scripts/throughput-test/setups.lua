@@ -34,9 +34,11 @@ local configurations = require("__inserter-throughput-lib__.scenario-scripts.thr
 ---@field undergrounds EntityDefinitionITL[]
 ---@field uses_belts boolean
 
+---@alias PickupOrDropTypeITL "chest"|"belt"|"splitter"|"underground"|"ground"
+
 ---@class PickupAndDropTypeITL
----@field pickup_type "chest"|"belt"|"ground"?
----@field drop_type "chest"|"belt"|"ground"?
+---@field pickup_type PickupOrDropTypeITL?
+---@field drop_type PickupOrDropTypeITL?
 
 ---@alias SetupFiltersITL PickupAndDropTypeITL
 
@@ -359,20 +361,43 @@ local function eval_final_width_and_height(parsed_setup)
 end
 
 ---@param parsed_setup ParsedSetupITL
-local function determine_pickup_and_drop_types(parsed_setup)
-  local pickup = parsed_setup.grid[get_point(parsed_setup.pickup.x, parsed_setup.pickup.y)]
-  local drop = parsed_setup.grid[get_point(parsed_setup.drop.x, parsed_setup.drop.y)]
-  parsed_setup.pickup_type = not pickup and "ground"
-    or pickup.entity_id == i_byte and "chest"
-    or "belt"
-  parsed_setup.drop_type = not drop and "ground"
-    or drop.entity_id == o_byte and "chest"
+---@param position MapPosition
+---@return EntityDefinitionITL?
+local function get_entity_def(parsed_setup, position)
+  return parsed_setup.grid[get_point(position.x, position.y)]
+end
+
+---@param entity_def EntityDefinitionITL?
+---@return PickupOrDropTypeITL
+local function get_pickup_or_drop_type(entity_def)
+  ---@cast entity_def -nil
+  return not entity_def and "ground"
+    or entity_def.entity_id == i_byte and "chest"
+    or entity_def.entity_id == bracket_left_byte and "underground"
+    or entity_def.entity_id == bracket_right_byte and "underground"
+    or entity_def.entity_id == curly_bracket_left_byte and "splitter"
+    or entity_def.entity_id == curly_bracket_right_byte and "splitter"
     or "belt"
 end
 
 ---@param parsed_setup ParsedSetupITL
+local function determine_pickup_and_drop_types(parsed_setup)
+  parsed_setup.pickup_type = get_pickup_or_drop_type(get_entity_def(parsed_setup, parsed_setup.pickup))
+  parsed_setup.drop_type = get_pickup_or_drop_type(get_entity_def(parsed_setup, parsed_setup.drop))
+end
+
+---@param pickup_or_dro_type PickupOrDropTypeITL
+---@return boolean
+local function is_belt_connectable_type(pickup_or_dro_type)
+  return pickup_or_dro_type == "belt"
+    or pickup_or_dro_type == "splitter"
+    or pickup_or_dro_type == "underground"
+end
+
+---@param parsed_setup ParsedSetupITL
 local function eval_uses_belts(parsed_setup)
-  parsed_setup.uses_belts = parsed_setup.pickup_type == "belt" or parsed_setup.drop_type == "belt"
+  parsed_setup.uses_belts = is_belt_connectable_type(parsed_setup.pickup_type)
+    or is_belt_connectable_type(parsed_setup.drop_type)
 end
 
 ---@param parsed_setup ParsedSetupITL
