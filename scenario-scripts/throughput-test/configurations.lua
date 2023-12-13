@@ -65,11 +65,19 @@ local inserter_speeds = {
 
 local stack_sizes = {
   1,
-  -- 2,
+  2,
   3,
-  -- 7,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
   12,
-  -- 17,
+  17,
+  31,
 }
 
 ---@class ConfigurationITL
