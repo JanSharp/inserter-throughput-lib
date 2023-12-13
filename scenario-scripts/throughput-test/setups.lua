@@ -555,21 +555,27 @@ local function build_setup(surface, x, y, parsed_setup, configuration)
   return inserter
 end
 
----@param filters SetupFiltersITL[]? @ Combined with an OR.
+---@param parsed_setup ParsedSetupITL
+---@param filters SetupFiltersITL[]?
+local function matches_filters(parsed_setup, filters)
+  if not filters then return true end
+  for _, filter in pairs(filters) do
+    if (not filter.pickup_type or filter.pickup_type == parsed_setup.pickup_type)
+      and (not filter.drop_type or filter.drop_type == parsed_setup.drop_type)
+    then
+      return true
+    end
+  end
+  return false
+end
+
+---@param filters SetupFiltersITL[]? @ Combined with an OR. `nil` matches everything. Empty array matches nothing.
 local function build_setups(filters)
   local setup_count = 0
   local nauvis = game.get_surface("nauvis") ---@cast nauvis -nil
   local x = 0
   for _, parsed_setup in pairs(parsed_setups) do
-    if filters then
-      local matches = false
-      for _, filter in pairs(filters) do
-        matches = (not filter.pickup_type or filter.pickup_type == parsed_setup.pickup_type)
-          and (not filter.drop_type or filter.drop_type == parsed_setup.drop_type)
-        if matches then break end
-      end
-      if not matches then goto continue end
-    end
+    if not matches_filters(parsed_setup, filters) then goto continue end
     for i, configuration in
       pairs(parsed_setup.uses_belts
         and configurations.configurations
