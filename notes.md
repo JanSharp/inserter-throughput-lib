@@ -20,3 +20,47 @@
 - [x] params in table form, formatted using %a with %.9f as comments at the end of the line
 
 - [ ] maybe add weighting to prefer negative deviations over positive ones
+
+- [ ] make sure the inserter throughput measuring is actually accurate
+
+- [ ] pausing should not reset auto pause
+  - [ ] add button to reset auto pause instead
+
+# What affects belt item seeking
+
+- pickup vector length
+- pickup vector orientation
+- belt direction
+- belt type
+  - belt: shape
+  - splitter
+  - underground: in/out
+  - loader: in/out
+- belt speed
+- extension speed
+- rotation speed
+- stack size
+- belt being backed up or not
+
+if it picks up too many items for the belt to keep up, reduce speed
+
+make vector for belt flow direction, length 1
+take dot product of that and pickup vector
+take the absolute
+result is extension influence
+1 - result is rotation influence
+the shorter the pickup vector, the more the opposite influences bleed into each other
+
+
+
+
+sine wave the belt speed
+sine wave the inserter speed
+somehow make seek times even longer for slow inserters on faster belts
+test chest to chest
+compare with the stupid simple algorithm where it's just the same logic for pickup and drop
+add more belt test cases
+remove splitter and underground test cases for now
+add more stack sizes
+add more inserters
+add more belt speeds, like 1 or 2

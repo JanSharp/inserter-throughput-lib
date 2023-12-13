@@ -1,15 +1,15 @@
 
--- seed:                    103603
--- setup count:             12360
--- average cubed deviation: 27.554516
--- average deviation:       1.754099/s
--- max deviation:           11.972789/s
--- iterations:              754
+-- seed:                    279412857
+-- setup count:             2880
+-- average cubed deviation: 8.276296
+-- average deviation:       0.909458/s
+-- max deviation:           7.030320/s
+-- iterations:              2300
 
 ---cSpell:disable
 
 return {
-  extension_belt_offset = -0x1.14d742bc66668p+0, -- -1.081409617
-  rotation_belt_offset = 0xa.22de3284cccc8p-4, -- 0.633512685
-  item_length_for_rotation = 0x6.c109e71p-4, -- 0.422128584
+  extension_distance_offset = -0x2.c92134fd20076p-4, -- -0.174103934
+  rotation_osset_from_tile_center = 0x1.340b7655271d2p-12, -- 0.000293774
+  belt_speed_multiplier = 0x2.6b4a9ab34d81ap-4, -- 0.151194195
 }

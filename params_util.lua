@@ -3,16 +3,16 @@ local current = require("__inserter-throughput-lib__.magic")
 
 ---@class ParamsITL
 local initial_min = {
-  extension_belt_offset = 0.1,
-  rotation_belt_offset = 0.1,
-  item_length_for_rotation = 0.05,
+  extension_distance_offset = 0.05,
+  rotation_osset_from_tile_center = 0.05,
+  belt_speed_multiplier = 1,
 }
 
 ---@type ParamsITL
 local initial_max = {
-  extension_belt_offset = 1,
-  rotation_belt_offset = 1,
-  item_length_for_rotation = 0.5,
+  extension_distance_offset = 0.5,
+  rotation_osset_from_tile_center = 0.5,
+  belt_speed_multiplier = 1,
 }
 
 ---@type fun(params: ParamsITL)[]

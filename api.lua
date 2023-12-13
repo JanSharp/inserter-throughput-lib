@@ -16,6 +16,8 @@ local math_max = math.max
 ---@field from_type "inventory"|"belt"|"ground"
 ---@field from_vector VectorXY @ Relative to inserter position.
 ---@field from_belt_speed number? @ Tiles per tick of each item on the belt being picked up from.
+---@field from_belt_direction defines.direction?
+---@field from_belt_shape "left"|"right"|"straight"
 ---@field to_type "inventory"|"belt"|"ground"
 ---@field to_vector VectorXY @ Relative to inserter position.
 ---@field to_belt_speed number? @ Tiles per tick of each item on the belt being dropped off to.
@@ -106,20 +108,6 @@ do
   end
 end
 
-local extension_belt_offset ---@type number
-local rotation_belt_offset ---@type number
-local item_length_for_rotation ---@type number
-
----@param params ParamsITL
-local function update_params(params)
-  extension_belt_offset = params.extension_belt_offset
-  rotation_belt_offset = params.rotation_belt_offset
-  item_length_for_rotation = params.item_length_for_rotation
-end
-
-params_util.on_params_set(update_params)
-update_params(params_util.get_params())
-
 ---Sets the `from_*` fields in def based on what it finds at the given position.\
 ---Does **not** set `from_vector` (because how would it).
 ---@param def InserterThroughputDefinition
@@ -129,6 +117,8 @@ local function set_from_based_on_entity(def, from_entity)
   def.from_type = from_type
   if from_type == "belt" then ---@cast from_entity -nil
     def.from_belt_speed = from_entity.prototype.belt_speed
+    def.from_belt_direction = from_entity.direction
+    def.from_belt_shape = from_entity.type == "transport-belt" and from_entity.belt_shape or "straight"
   end
 end
 
@@ -193,6 +183,20 @@ local function set_from_and_to_based_on_inserter(def, inserter)
   set_to_based_on_entity(def, inserter.drop_target)
 end
 
+local extension_distance_offset ---@type number
+local rotation_osset_from_tile_center ---@type number
+local belt_speed_multiplier ---@type number
+
+---@param params ParamsITL
+local function update_params(params)
+  extension_distance_offset = params.extension_distance_offset
+  rotation_osset_from_tile_center = params.rotation_osset_from_tile_center
+  belt_speed_multiplier = params.belt_speed_multiplier
+end
+
+params_util.on_params_set(update_params)
+update_params(params_util.get_params())
+
 ---@param extension_speed number @ Tiles per tick.
 ---@param from_length number @ Tiles.
 ---@param to_length number @ Tiles.
@@ -200,10 +204,10 @@ end
 ---@return integer
 local function calculate_extension_ticks(extension_speed, from_length, to_length, does_chase)
   local diff = math_abs(from_length - to_length)
-  if does_chase then
-    diff = math_max(0, diff - extension_belt_offset)
+  if not does_chase then
+    return math_ceil(diff / extension_speed)
   end
-  return math_ceil(diff / extension_speed)
+  return math_max(0, (diff + extension_distance_offset) / extension_speed)
 end
 
 ---@param rotation_speed number @ RealOrientation per tick.
@@ -225,19 +229,13 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
     end
     diff = math_abs(to_orientation - from_orientation)
   end
-  -- DEBUG
-  -- game.print(string.format("from: %.3f, to: %.3f, diff: %.3f",
-  --   from_orientation,
-  --   to_orientation,
-  --   tostring(diff)
-  -- ), {skip_if_redundant = false})
-
-  if does_chase then
-    local orientation_for_half_a_tile = vec.get_orientation{x = rotation_belt_offset, y = -from_length}
-    diff = math_max(0, diff - orientation_for_half_a_tile)
+  if not does_chase then
+    return math_ceil(diff / rotation_speed)
   end
 
-  return math_ceil(diff / rotation_speed)
+  local orientation_for_half_a_tile
+    = vec.get_orientation{x = rotation_osset_from_tile_center % 0.51, y = -from_length}
+  return math_max(0, (diff - orientation_for_half_a_tile) / rotation_speed)
 end
 
 ---@param def InserterThroughputDefinition
@@ -261,6 +259,29 @@ local function calculate_extra_drop_ticks(def)
   return math_max(stack_size - 1, math_floor(ticks_per_item * (stack_size - 2)))
 end
 
+local item_flow_vector_lut = {
+  [defines.direction.north] = {
+    ["straight"] = {x = 0, y = -1},
+    ["left"] = vec.normalize{x = -1, y = -1},
+    ["right"] = vec.normalize{x = 1, y = -1},
+  },
+  [defines.direction.east] = {
+    ["straight"] = {x = 1, y = 0},
+    ["left"] = vec.normalize{x = 1, y = -1},
+    ["right"] = vec.normalize{x = 1, y = 1},
+  },
+  [defines.direction.south] = {
+    ["straight"] = {x = 0, y = 1},
+    ["left"] = vec.normalize{x = 1, y = 1},
+    ["right"] = vec.normalize{x = -1, y = 1},
+  },
+  [defines.direction.west] = {
+    ["straight"] = {x = -1, y = 0},
+    ["left"] = vec.normalize{x = -1, y = 1},
+    ["right"] = vec.normalize{x = -1, y = -1},
+  },
+}
+
 ---@param def InserterThroughputDefinition
 ---@param from_length number @ Length of the from_vector.
 ---@return integer ticks
@@ -272,19 +293,30 @@ local function estimate_extra_pickup_ticks(def, from_length)
     return def.stack_size - 1
   end
   -- Is belt.
-  if def.chases_belt_items then
+  if not def.chases_belt_items then
     -- TODO: verify that it does indeed take 1 tick per item.
     -- TODO: also take belt speed into account, if the stack size is > 8 then it would pick up all items and
     -- have to wait for more items.
     -- TODO: also consider the fact that the belt may not be full again in the time it performs a full swing
     return def.stack_size - 1
   end
-  -- TODO: Improve this a lot.
-  local orientation_per_item = vec.get_orientation{x = item_length_for_rotation, y = -from_length}
-  local belt_orientation_per_tick = vec.get_orientation{x = def.from_belt_speed, y = -from_length}
-  belt_orientation_per_tick = belt_orientation_per_tick % def.rotation_speed
-  local average_seek_ticks = orientation_per_item / (def.rotation_speed + belt_orientation_per_tick)
-  return math_max(def.stack_size, average_seek_ticks * def.stack_size)
+
+  local item_flow_vector = item_flow_vector_lut[def.from_belt_direction][def.from_belt_shape]
+  -- Since item_flow_vector has a length of 1, extension_influence and rotation influence are values 0 to 1.
+  local extension_influence = math_abs(vec.dot_product(item_flow_vector, def.from_vector))
+  local rotation_influence = 1 - extension_influence
+  local influence_bleed = vec.get_orientation{x = 0.25, y = -from_length} * 4
+
+  local distance_due_to_belt_movement = def.from_belt_speed * belt_speed_multiplier
+
+  local hand_speed = extension_influence * def.extension_speed
+    + extension_influence * influence_bleed * def.rotation_speed
+    + rotation_influence * def.rotation_speed
+    + rotation_influence * influence_bleed * def.extension_speed
+  hand_speed = hand_speed + distance_due_to_belt_movement
+
+  local ticks_per_item = 0.25 / hand_speed -- 0.25 == distance per item
+  return math_max(def.stack_size, ticks_per_item * def.stack_size)
 end
 
 ---@param def InserterThroughputDefinition
