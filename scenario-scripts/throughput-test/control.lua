@@ -889,7 +889,7 @@ local function randomize_params()
   end
   local key = keys[global.rng(#keys)]
   local value = global.estimation_params[key]
-  global.estimation_params[key] = value + ((global.rng() - 0.5) * 0.1)
+  global.estimation_params[key] = value + ((global.rng() - 0.5) * (1.001 - auto_pause_progress()) * 0.25)
   global.changed_param_key = key
   global.changed_param_value_before = value
   global.changed_param_value_after = global.estimation_params[key]
