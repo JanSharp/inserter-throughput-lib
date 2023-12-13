@@ -1,7 +1,7 @@
 
 - [x] show completed iterations
 - [x] show iterations without progress progressbar
-- [ ] show setups count in the overview GUI
+- [x] show setups count in the overview GUI
 
 - [x] show left panel checkbox (per player)
 - [x] update left pane checkbox (per player)

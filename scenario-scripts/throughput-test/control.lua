@@ -724,6 +724,7 @@ local function populate_overview_right_top_panel(player, frame)
   }
   tab.style.horizontally_stretchable = true
 
+  add_label_row(tab, "Setup count", format("%d", #global.built_setups))
   player.average_cubed_deviation_label
     = add_label_row(tab, "Average cubed deviation", format_optional_value(global.best_average_cubed_deviation))
   player.average_deviation_label
