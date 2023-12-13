@@ -956,7 +956,7 @@ local function ensure_all_setups_are_built()
   global.setups_are_built = true
   global.are_inserters_active = true
   global.built_setups = {}
-  setups.build_setups{{pickup_type = "belt"}}
+  setups.build_setups{{pickup_type = "belt", without_output_loader = false}}
   local nauvis = game.surfaces["nauvis"]
   for _, built_setup in pairs(global.built_setups) do
     local config = built_setup.configuration

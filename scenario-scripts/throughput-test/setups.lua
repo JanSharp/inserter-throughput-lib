@@ -33,12 +33,14 @@ local configurations = require("__inserter-throughput-lib__.scenario-scripts.thr
 ---@field loaders EntityDefinitionITL[]
 ---@field undergrounds EntityDefinitionITL[]
 ---@field uses_belts boolean
+---@field is_variant_without_output_loader boolean? @ `nil` when not dropping onto any belt connectables.
 
 ---@alias PickupOrDropTypeITL "chest"|"belt"|"splitter"|"underground"|"ground"
 
 ---@class PickupAndDropTypeITL
 ---@field pickup_type PickupOrDropTypeITL?
 ---@field drop_type PickupOrDropTypeITL?
+---@field without_output_loader boolean? @ Setups not dropping onto belt connectables always "match" this filter.
 
 ---@alias SetupFiltersITL PickupAndDropTypeITL
 
@@ -401,6 +403,16 @@ local function eval_uses_belts(parsed_setup)
 end
 
 ---@param parsed_setup ParsedSetupITL
+local function eval_is_variant_without_output_loader(parsed_setup)
+  if parsed_setup.is_variant_without_output_loader then return end
+  if is_belt_connectable_type(parsed_setup.pickup_type) then
+    parsed_setup.is_variant_without_output_loader = false
+  end
+  -- `nil` otherwise, which has the defined meaning that it is not dropping onto any belts, therefore filters
+  -- using this field should ignore it (and therefore be considered a match).
+end
+
+---@param parsed_setup ParsedSetupITL
 local function add_parsed_setup(parsed_setup)
   parsed_setups[#parsed_setups+1] = parsed_setup
 end
@@ -420,6 +432,7 @@ local function generate_and_add_variants(parsed_setup)
       eval_final_width_and_height(variant)
       determine_pickup_and_drop_types(variant)
       eval_uses_belts(variant)
+      eval_is_variant_without_output_loader(variant)
       add_parsed_setup(variant)
     end
   end
@@ -433,6 +446,7 @@ local function parse_generate_and_add_variants(setup_def)
   if not setup_def.variant_without_output_loader then return end
 
   parsed_setup.name = parsed_setup.name..", with backed up belts"
+  parsed_setup.is_variant_without_output_loader = true
   local list = parsed_setup.loaders
   for i = #list, 1, -1 do
     local loader = list[i]
@@ -587,6 +601,8 @@ local function matches_filters(parsed_setup, filters)
   for _, filter in pairs(filters) do
     if (not filter.pickup_type or filter.pickup_type == parsed_setup.pickup_type)
       and (not filter.drop_type or filter.drop_type == parsed_setup.drop_type)
+      and (filter.without_output_loader == nil or parsed_setup.is_variant_without_output_loader == nil
+        or filter.without_output_loader == parsed_setup.is_variant_without_output_loader)
     then
       return true
     end
