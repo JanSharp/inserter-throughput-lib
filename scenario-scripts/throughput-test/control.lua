@@ -645,6 +645,14 @@ local pause_iteration_after_no_progress_handlers = register_slider_handlers(
   end
 )
 
+local function iterations_since_last_success()
+  return global.completed_interaction_count - global.last_successful_iteration
+end
+
+local function auto_pause_progress()
+  return math.min(1, iterations_since_last_success() / global.pause_iteration_after_no_progress)
+end
+
 local set_paused_game
 
 ---@param paused boolean
@@ -656,7 +664,7 @@ function set_iteration_is_paused(paused, source_player)
   for player in other_players(source_player) do
     player.pause_iteration_checkbox.state = paused
   end
-  if not paused then
+  if not paused and auto_pause_progress() == 1 then
     global.last_successful_iteration = global.completed_interaction_count
   end
 end
@@ -668,14 +676,6 @@ local on_iteration_paused_state_changed = gui.register_handler(
     set_iteration_is_paused(event.element.state, player)
   end
 )
-
-local function iterations_since_last_success()
-  return global.completed_interaction_count - global.last_successful_iteration
-end
-
-local function auto_pause_progress()
-  return math.min(1, iterations_since_last_success() / global.pause_iteration_after_no_progress)
-end
 
 local function write_report_file()
   local out = {

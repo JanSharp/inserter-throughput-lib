@@ -10,6 +10,7 @@
 - [x] pause iteration after no progress slider (global)
 - [x] pause iteration checkbox (global)
   - [x] tick pause while iteration is paused
+  - [x] pausing only resets auto pause progress if it was currently 100% filled, otherwise progress is retained
 - [x] seed field (global)
   - [x] generate seed button
   - [x] reset and use new seed button
@@ -24,9 +25,6 @@
 
 - [x] make sure the inserter throughput measuring is actually accurate
 - [ ] measurement is accurate, yes, however when picking up from belts timing plays a huge role. Measurement pauses help with it but it's still not great. It would be better if each segment between pauses was measured truly separately and then ones with nearly identical averages get discarded. After that it can take the average of all the "unique" ones, making reducing the chance of uneven weights for some timings
-
-- [ ] pausing should not reset auto pause
-  - [ ] add button to reset auto pause instead
 
 # What affects belt item seeking
 
