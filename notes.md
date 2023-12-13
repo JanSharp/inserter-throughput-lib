@@ -1,6 +1,7 @@
 
 - [x] show completed iterations
 - [x] show iterations without progress progressbar
+- [ ] show setups count in the overview GUI
 
 - [x] show left panel checkbox (per player)
 - [x] update left pane checkbox (per player)
@@ -21,7 +22,8 @@
 
 - [ ] maybe add weighting to prefer negative deviations over positive ones
 
-- [ ] make sure the inserter throughput measuring is actually accurate
+- [x] make sure the inserter throughput measuring is actually accurate
+- [ ] measurement is accurate, yes, however when picking up from belts timing plays a huge role. Measurement pauses help with it but it's still not great. It would be better if each segment between pauses was measured truly separately and then ones with nearly identical averages get discarded. After that it can take the average of all the "unique" ones, making reducing the chance of uneven weights for some timings
 
 - [ ] pausing should not reset auto pause
   - [ ] add button to reset auto pause instead
