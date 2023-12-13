@@ -64,7 +64,7 @@ data:extend({
     localised_description = "Only used on init.",
     order = "g",
     setting_type = "runtime-global",
-    default_value = 123456,
+    default_value = 123456789,
     minimum_value = 1,
     maximum_value = 2^32-1,
   },
