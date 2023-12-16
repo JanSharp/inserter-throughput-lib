@@ -246,7 +246,7 @@ local function calculate_extra_drop_ticks(def)
     return 0
   end
   if def.to_type == "ground" then
-    return def.stack_size - 1
+    return def.stack_size - 1 -- TODO: test if this is accurate
   end
   -- Is belt.
   local stack_size = def.stack_size
@@ -291,7 +291,7 @@ local function estimate_extra_pickup_ticks(def, from_length)
     return 0
   end
   if def.from_type == "ground" then
-    return def.stack_size - 1
+    return def.stack_size - 1 -- TODO: test if this is accurate
   end
   -- Is belt.
   if not def.chases_belt_items then
