@@ -31,6 +31,9 @@
   - [ ] loaders
   - [ ] splitters
 
+- [x] support ghost inserter
+- [x] support ghost targets
+
 # What affects belt item seeking
 
 - pickup vector length

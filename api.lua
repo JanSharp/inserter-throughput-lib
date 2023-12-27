@@ -46,10 +46,12 @@ local interactive_prototypes = {
   ["lab"] = true,
   ["linked-belt"] = true,
   ["linked-container"] = true,
-  ["loader"] = true,
   ["loader-1x1"] = true,
+  ["loader"] = true,
   ["locomotive"] = true,
   ["logistic-container"] = true,
+  ["pump"] = true,
+  ["radar"] = true,
   ["reactor"] = true,
   ["roboport"] = true,
   ["rocket-silo"] = true,
@@ -61,7 +63,7 @@ local interactive_prototypes = {
 }
 
 ---Out of all the prototypes an inserter can interact with, these are just the belt connectable ones.
-local belt_prototypes = {
+local belt_connectable = {
   ["linked-belt"] = true,
   ["loader-1x1"] = true,
   ["loader"] = true,
@@ -70,12 +72,92 @@ local belt_prototypes = {
   ["underground-belt"] = true,
 }
 
----@param entity LuaEntity?
+local can_always_pickup = {
+  ["ammo-turret"] = true,
+  ["artillery-turret"] = true,
+  ["artillery-wagon"] = true,
+  ["assembling-machine"] = true,
+  ["beacon"] = true,
+  ["burner-generator"] = true,
+  ["car"] = true,
+  ["cargo-wagon"] = true,
+  ["container"] = true,
+  ["curved-rail"] = true,
+  ["furnace"] = true,
+  ["lab"] = true,
+  ["linked-container"] = true,
+  ["logistic-container"] = true,
+  ["reactor"] = true,
+  ["roboport"] = true,
+  ["rocket-silo"] = true,
+  ["straight-rail"] = true,
+}
+
+---Apparently inserters can have burner energy sources _with burnt results_, but you can't pick it up from them.
+local can_pickup_if_burner = {
+  ["boiler"] = true,
+  ["locomotive"] = true,
+  ["mining-drill"] = true,
+  ["pump"] = true,
+  ["radar"] = true,
+}
+
+local can_always_drop = {
+  ["ammo-turret"] = true,
+  ["artillery-turret"] = true,
+  ["artillery-wagon"] = true,
+  ["assembling-machine"] = true,
+  ["beacon"] = true,
+  ["burner-generator"] = true,
+  ["car"] = true,
+  ["cargo-wagon"] = true,
+  ["container"] = true,
+  ["curved-rail"] = true,
+  ["furnace"] = true,
+  ["lab"] = true,
+  ["linked-container"] = true,
+  ["logistic-container"] = true,
+  ["reactor"] = true,
+  ["roboport"] = true,
+  ["rocket-silo"] = true,
+  ["straight-rail"] = true,
+}
+
+local can_drop_if_burner = {
+  ["boiler"] = true,
+  ["inserter"] = true,
+  ["locomotive"] = true,
+  ["mining-drill"] = true,
+  ["pump"] = true,
+  ["radar"] = true,
+}
+
+---@param entity LuaEntity
+---@return string type
+local function get_real_or_ghost_entity_type(entity)
+  local entity_type = entity.type
+  if entity_type == "entity-ghost" then
+    return entity.ghost_type
+  end
+  return entity_type
+end
+
+---@param entity LuaEntity @ Must not be a ghost for a tile.
+---@return LuaEntityPrototype
+local function get_real_or_ghost_entity_prototype(entity)
+  local entity_type = entity.type
+  if entity_type == "entity-ghost" then
+    return entity.ghost_prototype--[[@as LuaEntityPrototype]]
+  end
+  return entity.prototype
+end
+
+---@param entity LuaEntity? @ Handles both real and ghost entities.
 ---@return "ground"|"inventory"|"belt"
 local function get_interactive_type(entity)
   if not entity then return "ground" end
-  local entity_type = entity.type
-  if belt_prototypes[entity_type] then return "belt" end
+  local entity_type = get_real_or_ghost_entity_type(entity)
+  if belt_connectable[entity_type] then return "belt" end
   if interactive_prototypes[entity_type] then return "inventory" end
   return "ground"
 end
@@ -88,38 +170,116 @@ do
   ---@type LuaSurface.find_entities_filtered_param
   local arg = {area = {left_top = left_top, right_bottom = right_bottom}}
 
-  -- TODO: Check if this logic also applies to drop. I've only tested pickup so far.
+  ---High means better.
+  ---@alias CandidatePriorityITL
+  ---| 4 @ belt connectable
+  ---| 3 @ not belt connectable
+  ---| 2 @ ghost belt connectable
+  ---| 1 @ ghost not belt connectable
+  ---| 0 @ not usable
 
   ---@param surface LuaSurface
   ---@param position VectorXY
+  ---@param inserter LuaEntity?
+  ---@param distance_from_tile_edge number
+  ---@param get_target_priority fun(entity: LuaEntity, inserter: LuaEntity?): CandidatePriorityITL
   ---@return LuaEntity?
-  function get_interactive_entity(surface, position)
+  function get_interactive_entity(surface, position, inserter, distance_from_tile_edge, get_target_priority)
     local left = math_floor(position.x)
     local top = math_floor(position.y)
-    left_top.x = left
-    left_top.y = top
-    right_bottom.x = left + 1
-    right_bottom.y = top + 1
+    left_top.x = left + distance_from_tile_edge
+    left_top.y = top + distance_from_tile_edge
+    right_bottom.x = left + 1 - distance_from_tile_edge
+    right_bottom.y = top + 1 - distance_from_tile_edge
+    local best_candidate = nil
+    local best_priority = 0
     for _, entity in pairs(surface.find_entities_filtered(arg)) do
-      if interactive_prototypes[entity.type] then
-        return entity
+      local candidate_priority = get_target_priority(entity, inserter)
+      if candidate_priority > best_priority then
+        best_priority = candidate_priority
+        best_candidate = entity
       end
     end
-    return nil
+    return best_candidate
   end
+end
+
+---@param entity LuaEntity
+---@param inserter LuaEntity?
+---@return CandidatePriorityITL
+local function get_pickup_target_priority(entity, inserter)
+  if entity == inserter then return 0 end
+  if inserter and not entity.force.is_friend(inserter.force) then return 0 end
+  local entity_type = entity.type
+  if entity_type == "entity-ghost" then
+    if (entity.ghost_prototype.flags or {})["no-automated-item-removal"] then return 0 end
+    entity_type = entity.ghost_type
+    return belt_connectable[entity_type] and 2
+      or can_always_pickup[entity_type] and 1
+      -- This might not be the best way to check for a burner energy source however it works.
+      or can_pickup_if_burner[entity_type] and entity.ghost_prototype.burner_prototype and 1
+      or 0
+  end
+  if (entity.prototype.flags or {})["no-automated-item-removal"] then return 0 end
+  return belt_connectable[entity_type] and 4
+    or entity_type == "straight-rail"
+    or entity_type == "curved-rail"
+    or entity.get_output_inventory() and 3
+    or 0
+end
+
+---@param surface LuaSurface
+---@param position VectorXY
+---@param inserter LuaEntity? @ Handles both real and ghost inserters.
+---@return LuaEntity?
+local function get_pickup_target(surface, position, inserter)
+  -- Magic number 25/256 (0.09765625), tested by teleporting a car 1/256 at a time.
+  return get_interactive_entity(surface, position, inserter, 25/256, get_pickup_target_priority)
+end
+
+---@param entity LuaEntity
+---@param inserter LuaEntity?
+---@return CandidatePriorityITL
+local function get_drop_target_priority(entity, inserter)
+  if entity == inserter then return 0 end
+  local entity_type = entity.type
+  local prototype_key = "prototype"
+  local offset = 2
+  if entity_type == "entity-ghost" then
+    offset = 0
+    entity_type = entity.ghost_type
+    prototype_key = "ghost_prototype"
+  end
+  if (entity[prototype_key].flags or {})["no-automated-item-insertion"] then return 0 end
+  return belt_connectable[entity_type] and (2 + offset)
+    or can_always_drop[entity_type] and (1 + offset)
+    -- This might not be the best way to check for a burner energy source however it works.
+    or can_drop_if_burner[entity_type] and entity[prototype_key].burner_prototype and (1 + offset)
+    or 0
+end
+
+---@param surface LuaSurface
+---@param position VectorXY
+---@param inserter LuaEntity? @ Handles both real and ghost inserters.
+---@return LuaEntity?
+local function get_drop_target(surface, position, inserter)
+  -- Magic number 12/256 (0.046875), tested by teleporting a car 1/256 at a time.
+  return get_interactive_entity(surface, position, inserter, 12/256, get_drop_target_priority)
 end
 
 ---Sets the `from_*` fields in def based on what it finds at the given position.\
 ---Does **not** set `from_vector` (because how would it).
 ---@param def InserterThroughputDefinition
----@param from_entity LuaEntity?
+---@param from_entity LuaEntity? @ Handles both real and ghost entities.
 local function set_from_based_on_entity(def, from_entity)
   local from_type = get_interactive_type(from_entity)
   def.from_type = from_type
   if from_type == "belt" then ---@cast from_entity -nil
-    def.from_belt_speed = from_entity.prototype.belt_speed
+    def.from_belt_speed = get_real_or_ghost_entity_prototype(from_entity).belt_speed
     def.from_belt_direction = from_entity.direction
-    def.from_belt_shape = from_entity.type == "transport-belt" and from_entity.belt_shape or "straight"
+    def.from_belt_shape = get_real_or_ghost_entity_type(from_entity) == "transport-belt"
+      and from_entity.belt_shape
+      or "straight"
   end
 end
 
@@ -128,29 +288,39 @@ end
 ---@param surface LuaSurface
 ---@param inserter_position VectorXY
 ---@param from_position VectorXY
-local function set_from_based_on_position(def, surface, inserter_position, from_position)
+---@param inserter LuaEntity? @ Handles both real and ghost inserters.
+local function set_from_based_on_position(def, surface, inserter_position, from_position, inserter)
   def.from_vector = vec.sub(vec.copy(from_position), inserter_position)
-  set_from_based_on_entity(def, get_interactive_entity(surface, from_position))
+  set_from_based_on_entity(def, get_pickup_target(surface, from_position, inserter))
 end
 
 ---Sets the `from_*` fields in def based on the current pickup position and target of the given inserter.
 ---@param def InserterThroughputDefinition
----@param inserter LuaEntity
+---@param inserter LuaEntity @ Handles both real and ghost inserters.
 local function set_from_based_on_inserter(def, inserter)
-  def.from_vector = vec.sub(inserter.pickup_position, inserter.position)
-  set_from_based_on_entity(def, inserter.pickup_target)
+  local pickup_target = inserter.pickup_target
+  if pickup_target then
+    def.from_vector = vec.sub(inserter.pickup_position, inserter.position)
+    set_from_based_on_entity(def, pickup_target)
+  else
+    -- If the inserter is a ghost, the pickup_target is always nil, so this is ghost support. For non ghosts:
+    -- The inserter could have been placed in this tick, in which case the pickup and drop targets have not
+    -- been evaluated yet, so we're using the position as the fallback. The chance of this being the case is
+    -- especially high when the game is tick paused.
+    set_from_based_on_position(def, inserter.surface, inserter.position, inserter.pickup_position, inserter)
+  end
 end
 
 ---Sets the `to_*` fields in def based on what it finds at the given position.\
 ---Does **not** set `to_vector` (because how would it).
 ---@param def InserterThroughputDefinition
----@param to_entity LuaEntity?
+---@param to_entity LuaEntity? @ Handles both real and ghost entities.
 local function set_to_based_on_entity(def, to_entity)
   local to_type = get_interactive_type(to_entity)
   def.to_type = to_type
   if to_type == "belt" then ---@cast to_entity -nil
-    def.to_belt_speed = to_entity.prototype.belt_speed
-    def.to_is_splitter = to_entity.type == "splitter"
+    def.to_belt_speed = get_real_or_ghost_entity_prototype(to_entity).belt_speed
+    def.to_is_splitter = get_real_or_ghost_entity_type(to_entity) == "splitter"
   end
 end
 
@@ -159,29 +329,33 @@ end
 ---@param surface LuaSurface
 ---@param inserter_position VectorXY
 ---@param to_position VectorXY
-local function set_to_based_on_position(def, surface, inserter_position, to_position)
+---@param inserter LuaEntity? @ Handles both real and ghost inserters.
+local function set_to_based_on_position(def, surface, inserter_position, to_position, inserter)
   def.to_vector = vec.sub(vec.copy(to_position), inserter_position)
-  set_to_based_on_entity(def, get_interactive_entity(surface, to_position))
+  set_to_based_on_entity(def, get_drop_target(surface, to_position, inserter))
 end
 
 ---Sets the `to_*` fields in def based on the current drop position and target of the given inserter.
 ---@param def InserterThroughputDefinition
----@param inserter LuaEntity
+---@param inserter LuaEntity @ Handles both real and ghost inserters.
 local function set_to_based_on_inserter(def, inserter)
-  def.to_vector = vec.sub(inserter.drop_position, inserter.position)
-  set_to_based_on_entity(def, inserter.drop_target)
+  local drop_target = inserter.drop_target
+  if drop_target then
+    def.to_vector = vec.sub(inserter.drop_position, inserter.position)
+    set_to_based_on_entity(def, inserter.drop_target)
+  else
+    -- Same as in `set_from_based_on_inserter`, see there for the comment.
+    set_to_based_on_position(def, inserter.surface, inserter.position, inserter.drop_position, inserter)
+  end
 end
 
 ---Sets the `from_*` and `to_*` fields in def based on the current pickup and drop positions and targets of
 ---the given inserter.
 ---@param def InserterThroughputDefinition
----@param inserter LuaEntity
+---@param inserter LuaEntity @ Handles both real and ghost inserters.
 local function set_from_and_to_based_on_inserter(def, inserter)
-  local position = inserter.position
-  def.from_vector = vec.sub(inserter.pickup_position, position)
-  def.to_vector = vec.sub(inserter.drop_position, position)
-  set_from_based_on_entity(def, inserter.pickup_target)
-  set_to_based_on_entity(def, inserter.drop_target)
+  set_from_based_on_inserter(def, inserter)
+  set_to_based_on_inserter(def, inserter)
 end
 
 local extension_distance_offset ---@type number
@@ -354,7 +528,6 @@ end
 
 return {
   get_target_type = get_interactive_type,
-  get_interactive_entity = get_interactive_entity,
   set_from_based_on_entity = set_from_based_on_entity,
   set_from_based_on_position = set_from_based_on_position,
   set_from_based_on_inserter = set_from_based_on_inserter,

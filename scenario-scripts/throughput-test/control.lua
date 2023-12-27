@@ -973,13 +973,15 @@ local function ensure_all_setups_are_built()
       def,
       nauvis,
       built_setup.inserter.position,
-      built_setup.inserter.pickup_position
+      built_setup.inserter.pickup_position,
+      built_setup.inserter
     )
     inserter_throughput.set_to_based_on_position(
       def,
       nauvis,
       built_setup.inserter.position,
-      built_setup.inserter.drop_position
+      built_setup.inserter.drop_position,
+      built_setup.inserter
     )
     built_setup.inserter_throughput_definition = def
   end
