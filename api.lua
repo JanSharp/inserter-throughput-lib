@@ -526,6 +526,13 @@ local function estimate_inserter_speed(def)
   return cap_to_belt_speed(60 / total_ticks * def.stack_size, def)
 end
 
+---Whether or not the given definition can be used accurate throughput calculation or if it is just an estimate.
+---@param def InserterThroughputDefinition
+---@return boolean
+local function is_estimate(def)
+  return def.from_type == "belt"
+end
+
 return {
   get_target_type = get_interactive_type,
   set_from_based_on_entity = set_from_based_on_entity,
@@ -536,4 +543,5 @@ return {
   set_to_based_on_inserter = set_to_based_on_inserter,
   set_from_and_to_based_on_inserter = set_from_and_to_based_on_inserter,
   estimate_inserter_speed = estimate_inserter_speed,
+  is_estimate = is_estimate,
 }
