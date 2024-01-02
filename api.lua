@@ -429,7 +429,6 @@ local function calculate_extra_drop_ticks(def)
   if def.to_is_splitter then
     -- TODO: impl splitters
   end
-  -- How the hell does changing this to *4 actually make a difference... Makes less than 0 sense.
   local ticks_per_item = 0.25 / def.to_belt_speed
   return math_max(stack_size - 1, math_floor(ticks_per_item * (stack_size - 2)))
 end
