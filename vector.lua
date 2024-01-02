@@ -17,6 +17,7 @@ local math_cos = math.cos
 ---@generic T : VectorXY
 ---@param vector T
 ---@return T
+---@nodiscard
 local function copy(vector) ---@cast vector VectorXY
   return {x = vector.x, y = vector.y}
 end
