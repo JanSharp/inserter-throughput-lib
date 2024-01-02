@@ -490,7 +490,6 @@ local function estimate_extra_pickup_ticks(def, from_length)
     -- TODO: verify that it does indeed take 1 tick per item.
     -- TODO: also take belt speed into account, if the stack size is > 8 then it would pick up all items and
     -- have to wait for more items.
-    -- TODO: also consider the fact that the belt may not be full again in the time it performs a full swing
     return def.stack_size - 1
   end
 
