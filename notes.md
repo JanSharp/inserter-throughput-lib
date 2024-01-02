@@ -34,6 +34,8 @@
 - [x] support ghost inserter
 - [x] support ghost targets
 
+- [x] when picking up tons of items from a belt, extra pickup ticks must not be faster than the belt is moving
+
 # What affects belt item seeking
 
 - pickup vector length

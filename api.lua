@@ -457,9 +457,27 @@ local item_flow_vector_lut = {
   },
 }
 
+---This logic is especially relevant for inserters with large stack sizes. It is different from the belt speed
+---cap performed at the very end, because imagine this: huge stack size, fairly fast inserter, picking up and
+---dropping to slow belts. In this case it could think it can pick up items faster than the belt can provide
+---them, and the cap at the very end won't catch that because the inserter is also spending a lot of time
+---dropping items to the slow belt. It is this logic that has to catch it.
+---@param def InserterThroughputDefinition
+---@param extra_pickup_ticks number
+---@return number extra_pickup_ticks
+local function cap_extra_pickup_ticks_to_belt_speed(def, extra_pickup_ticks)
+  -- Magic 8. It's simply the amount of items that are already on the belt, before more items have to move in.
+  -- If the inserter is so fast that there wouldn't actually be 8 items on the belt yet, there's the final
+  -- cap that will handle that case.
+  local item_count = def.stack_size - 8
+  if item_count < 0 then return extra_pickup_ticks end -- Not required, just short circuit.
+  local ticks_per_item = (0.25 / def.from_belt_speed) / 2
+  return math_max(math_ceil(item_count * ticks_per_item), extra_pickup_ticks)
+end
+
 ---@param def InserterThroughputDefinition
 ---@param from_length number @ Length of the from_vector.
----@return integer ticks
+---@return number ticks
 local function estimate_extra_pickup_ticks(def, from_length)
   if def.from_type == "inventory" then
     return 0
@@ -491,7 +509,7 @@ local function estimate_extra_pickup_ticks(def, from_length)
   hand_speed = hand_speed + distance_due_to_belt_movement
 
   local ticks_per_item = 0.25 / hand_speed -- 0.25 == distance per item
-  return math_max(def.stack_size, ticks_per_item * def.stack_size)
+  return cap_extra_pickup_ticks_to_belt_speed(def, math_max(def.stack_size, ticks_per_item * def.stack_size))
 end
 
 ---@param items_per_second number
