@@ -47,3 +47,12 @@ local infinity_chest = util.copy(data.raw["infinity-container"]["infinity-chest"
 infinity_chest.name = "itl-infinity-chest"
 infinity_chest.inventory_size = 1 -- Improves performance by 35% in total (so game update).
 data:extend{infinity_chest}
+
+local splitter_drop_target_test_inserter = util.copy(data.raw["inserter"]["inserter"])
+splitter_drop_target_test_inserter.name = "splitter-drop-target-test"
+splitter_drop_target_test_inserter.allow_custom_vectors = true
+splitter_drop_target_test_inserter.energy_source = {type = "void"}
+splitter_drop_target_test_inserter.rotation_speed = 1024
+splitter_drop_target_test_inserter.extension_speed = 1024
+splitter_drop_target_test_inserter.stack_size_bonus = 1
+data:extend{splitter_drop_target_test_inserter}
