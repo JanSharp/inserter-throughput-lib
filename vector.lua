@@ -1,6 +1,6 @@
 
 ---Only accepts tables taking the xy form, not arrays.
----@alias VectorXY Vector|MapPosition
+---@alias VectorXY Vector|MapPosition|TilePosition
 
 ---Must watch (3blue1brown) https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab
 ---@class MatrixIJ
