@@ -375,6 +375,7 @@ local function get_pickup_or_drop_type(entity_def)
   ---@cast entity_def -nil
   return not entity_def and "ground"
     or entity_def.entity_id == i_byte and "chest"
+    or entity_def.entity_id == o_byte and "chest"
     or entity_def.entity_id == bracket_left_byte and "underground"
     or entity_def.entity_id == bracket_right_byte and "underground"
     or entity_def.entity_id == curly_bracket_left_byte and "splitter"
