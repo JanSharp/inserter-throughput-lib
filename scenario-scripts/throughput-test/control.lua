@@ -459,7 +459,6 @@ local function add_label_row(parent, name, value)
   local label = parent.add{
     type = "label",
     caption = value,
-    style = "heading_3_label_yellow",
   }
   label.style.horizontally_stretchable = true
   return label
