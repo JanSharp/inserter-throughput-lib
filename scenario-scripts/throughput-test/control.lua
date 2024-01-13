@@ -4,8 +4,10 @@ local configurations = require("__inserter-throughput-lib__.scenario-scripts.thr
 local gui = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.gui")
 local inserter_throughput = require("__inserter-throughput-lib__.api")
 local params_util = require("__inserter-throughput-lib__.params_util")
+local vec = require("__inserter-throughput-lib__.vector")
 
 ---@class BuiltSetupITL
+---@field index integer
 ---@field parsed_setup ParsedSetupITL
 ---@field configuration ConfigurationITL
 ---@field left_top MapPosition
@@ -15,7 +17,7 @@ local params_util = require("__inserter-throughput-lib__.params_util")
 ---@field average_total_ticks number
 ---@field was_valid_for_read boolean
 ---@field cycle_start integer
----@field average_speed number? @ items/s. When `nil` then the inserter was either way to slow or it never swung.
+---@field average_speed number? @ items/s. When `nil` then the inserter was either way too slow or it never swung.
 ---@field estimated_speed number? @ items/s
 ---items/s. How far off estimated speed is from average measured speed. `nil` when `average_speed` is `nil`.
 ---@field deviation number?
@@ -42,11 +44,32 @@ local params_util = require("__inserter-throughput-lib__.params_util")
 ---@field pause_iteration_after_no_progress_elems SliderElemsITL?
 ---@field pause_iteration_checkbox LuaGuiElement?
 ---@field auto_pause_iterations_progress_bar LuaGuiElement?
+---@field details_panel_visibility_flow LuaGuiElement?
+---@field details_setup_camera LuaGuiElement?
+---@field selected_setup_for_details BuiltSetupITL?
+---@field details_pickup_text_id uint64?
+---@field details_drop_text_id uint64?
+---@field details_setup_label LuaGuiElement?
+---@field details_belt_label LuaGuiElement?
+---@field details_inserter_label LuaGuiElement?
+---@field details_stack_size_label LuaGuiElement?
+---@field details_cycle_count_label LuaGuiElement?
+---@field details_average_total_ticks_label LuaGuiElement?
+---@field details_average_speed_label LuaGuiElement? @ "measured"
+---@field details_estimated_speed_label LuaGuiElement?
+---@field details_deviation_label LuaGuiElement?
+---@field details_best_estimated_speed_label LuaGuiElement?
+---@field details_best_deviation_label LuaGuiElement?
+---@field per_setup_name_labels table<BuiltSetupITL, LuaGuiElement>
 ---@field per_setup_estimation_labels table<BuiltSetupITL, LuaGuiElement>
 ---@field per_setup_deviation_labels table<BuiltSetupITL, LuaGuiElement>
 
+---@alias StateITL "idle"|"warming_up"|"measuring"|"iterating"|"done"
+
 ---@class GlobalDataITL
----@field state "idle"|"warming_up"|"measuring"|"iterating"|"done"
+---@field state StateITL
+---@field next_state StateITL?
+---@field was_paused_before_setting_next_state boolean?
 ---@field players table<integer, PlayerDataITL>
 ---@field built_setups BuiltSetupITL[] @ Can still contain data even when `setups_are_built` is `false`.
 ---@field setups_are_built boolean @ As in all the entities (still) exist.
@@ -90,17 +113,17 @@ for _, belt_speed in pairs(configurations.belt_speeds) do
   slowest_belt = math.min(slowest_belt, belt_speed.belt_speed)
 end
 local warming_up_duration_ticks = math.ceil(10 / slowest_belt) -- The ticks it takes to fill 10 belts.
-local measurement_duration_between_pauses = 15 * 60
+local measurement_duration_between_pauses = 15 * 60 * 4
 local measurement_pause_durations = {
-  1,
-  2,
-  3,
-  5,
-  7,
-  13,
-  17,
-  19,
-  29,
+  -- 1,
+  -- 2,
+  -- 3,
+  -- 5,
+  -- 7,
+  -- 13,
+  -- 17,
+  -- 19,
+  -- 29,
 }
 local measurement_duration_ticks = measurement_duration_between_pauses * (#measurement_pause_durations + 1)
 for _, pause_duration in pairs(measurement_pause_durations) do
@@ -242,6 +265,18 @@ local function format_deviation(deviation)
     )
 end
 
+local set_setup_for_details
+
+---@param player PlayerDataITL
+---@param setup_index integer
+local function on_setup_row_click(player, setup_index)
+  local built_setup = global.built_setups[setup_index]--[[@as BuiltSetupITL?]]
+  if player.selected_setup_for_details == built_setup then
+    built_setup = nil
+  end
+  set_setup_for_details(player, built_setup)
+end
+
 ---@param player PlayerDataITL
 local function populate_left_panel(player)
   local scroll_pane = player.left_panel_frame.add{type = "scroll-pane"}
@@ -283,13 +318,15 @@ local function populate_left_panel(player)
   add(param)
   param.style = nil
 
+  local per_setup_name_labels = player.per_setup_name_labels
   local estimation_labels = player.per_setup_estimation_labels
   local deviation_labels = player.per_setup_deviation_labels
 
   for _, built_setup in pairs(global.built_setups) do
     local config = built_setup.configuration
+    param.tags = {itl_setup_index = built_setup.index}
     param.caption = built_setup.parsed_setup.name
-    add(param)
+    per_setup_name_labels[built_setup] = add(param)
     param.caption = config.belt_name or "-"
     add(param)
     param.caption = config.inserter_name
@@ -761,8 +798,165 @@ local function populate_overview_right_top_panel(player, frame)
   })
 end
 
+local function create_tiles_for_setup_camera()
+  local width = 0
+  local height = 0
+  for _, setup in pairs(global.built_setups) do
+    width = math.max(width, setup.parsed_setup.width)
+    height = math.max(height, setup.parsed_setup.height)
+  end
+  width = width + 2 -- Ring around setup.
+  height = height + 2 -- Ring around setup.
+  ---@type Tile[]
+  local tiles = {}
+  for x = 0, width - 1 do
+    for y = 0, height - 1 do
+      tiles[x + y * height] = {
+        position = {x = x, y = y},
+        name = ((x + y) % 2) == 0 and "lab-dark-1" or "lab-dark-2",
+      }
+    end
+  end
+  game.surfaces["nauvis"].set_tiles(tiles, false, false, false, false)
+end
+
+---@param player PlayerDataITL
 ---@param frame LuaGuiElement
-local function populate_overview_right_bottom_panel(frame)
+local function populate_overview_right_bottom_panel(player, frame)
+  local main, elems = gui.create_elem(frame, {
+    type = "flow",
+    direction = "horizontal",
+    visible = false,
+    style_mods = {horizontally_stretchable = true},
+    children = {
+      {
+        type = "table",
+        name = "tab",
+        column_count = 2,
+        style_mods = {horizontally_stretchable = true},
+      },
+      {
+        type = "frame",
+        style = "deep_frame_in_shallow_frame",
+        children = {
+          {
+            type = "camera",
+            name = "setup_camera",
+            surface_index = game.surfaces["nauvis"].index,
+            position = {x = 0, y = 0},
+            zoom = 1,
+          },
+        },
+      },
+    },
+  })
+  player.details_panel_visibility_flow = main
+  player.details_setup_camera = elems.setup_camera
+  create_tiles_for_setup_camera()
+
+  local tab = elems.tab
+  player.details_setup_label = add_label_row(tab, "setup", "-")
+  player.details_belt_label = add_label_row(tab, "belt", "-")
+  player.details_inserter_label = add_label_row(tab, "inserter", "-")
+  player.details_stack_size_label = add_label_row(tab, "stack size", "-")
+  player.details_cycle_count_label = add_label_row(tab, "cycle count", "-")
+  player.details_average_total_ticks_label = add_label_row(tab, "average total ticks", "-")
+  player.details_average_speed_label = add_label_row(tab, "average speed (\"measured\")", "-")
+
+  player.details_estimated_speed_label = add_label_row(tab, "estimated speed", "-")
+  player.details_deviation_label = add_label_row(tab, "deviation", "-")
+  player.details_best_estimated_speed_label = add_label_row(tab, "best estimated speed", "-")
+  player.details_best_deviation_label = add_label_row(tab, "best deviation", "-")
+end
+
+---@param surface LuaSurface
+---@param text string
+---@param position MapPosition
+---@return uint64 id
+local function draw_pickup_or_drop_text(surface, text, position)
+  return rendering.draw_text{
+    surface = surface,
+    color = {r = 1, g = 1, b = 1},
+    target = position,
+    alignment = "center",
+    scale = 2,
+    text = text,
+  }
+end
+
+---This clearly does not support multiple players using it at the same time. This is know and it's a won't fix
+---because why bother adding yet more complexity to this debug only tool that nobody is ever going to use in
+---multiplayer?!
+---@param player PlayerDataITL
+local function cleanup_details(player)
+  local surface = game.surfaces["nauvis"]
+  for _, entity in pairs(surface.find_entities()) do
+    entity.destroy()
+  end
+  if player.details_pickup_text_id then
+    rendering.destroy(player.details_pickup_text_id)
+    player.details_pickup_text_id = nil
+  end
+  if player.details_drop_text_id then
+    rendering.destroy(player.details_drop_text_id)
+    player.details_drop_text_id = nil
+  end
+end
+
+---@param player PlayerDataITL
+local function update_details(player)
+  local built_setup = player.selected_setup_for_details
+  if not built_setup then return end
+  player.details_estimated_speed_label.caption = format_speed(built_setup.estimated_speed)
+  player.details_deviation_label.caption = format_deviation(built_setup.deviation)
+  player.details_best_estimated_speed_label.caption = format_speed(built_setup.best_estimated_speed)
+  player.details_best_deviation_label.caption = format_deviation(built_setup.best_deviation)
+end
+
+---@param player PlayerDataITL
+---@param built_setup BuiltSetupITL
+function set_setup_for_details(player, built_setup)
+  local prev_name_label = player.per_setup_name_labels[player.selected_setup_for_details]
+  if prev_name_label then
+    prev_name_label.style = "label"
+  end
+  player.selected_setup_for_details = built_setup
+  player.details_panel_visibility_flow.visible = not not built_setup
+  cleanup_details(player)
+  if not built_setup then return end
+  player.per_setup_name_labels[built_setup].style = "heading_3_label_yellow"
+
+  local parsed_setup = built_setup.parsed_setup
+  player.details_setup_camera.style.size = {
+    (parsed_setup.width + 1) * 32,
+    (parsed_setup.height + 1) * 32,
+  }
+  player.details_setup_camera.position = {
+    x = parsed_setup.width / 2 + 1,
+    y = parsed_setup.height / 2 + 1,
+  }
+
+  local surface = game.surfaces["nauvis"]
+  setups.build_setup(surface, 0, 0, built_setup.parsed_setup, built_setup.configuration)
+  for _, entity in pairs(surface.find_entities()) do
+    entity.active = false
+  end
+  player.details_pickup_text_id = draw_pickup_or_drop_text(surface, "^",
+    vec.add(vec.add(vec.copy(parsed_setup.pickup), parsed_setup.left_top_offset), {x = 0.5, y = -0.125})
+  )
+  player.details_drop_text_id = draw_pickup_or_drop_text(surface, "v",
+    vec.add(vec.add(vec.copy(parsed_setup.drop), parsed_setup.left_top_offset), {x = 0.5, y = -0.125})
+  )
+
+  player.details_setup_label.caption = parsed_setup.name
+  player.details_belt_label.caption = built_setup.configuration.belt_name or "-"
+  player.details_inserter_label.caption = built_setup.configuration.inserter_name
+  player.details_stack_size_label.caption = format("%d", built_setup.configuration.stack_size)
+  player.details_cycle_count_label.caption = format("%d", built_setup.cycle_count)
+  player.details_average_total_ticks_label.caption = format("%.6f", built_setup.average_total_ticks)
+  player.details_average_speed_label.caption = format_speed(built_setup.average_speed)
+
+  update_details(player)
 end
 
 ---@param player PlayerDataITL
@@ -792,7 +986,7 @@ local function create_overview_right_panels(player, content_flow)
   }
   bottom_frame.style.horizontally_stretchable = true
   bottom_frame.style.vertically_stretchable = true
-  populate_overview_right_bottom_panel(bottom_frame)
+  populate_overview_right_bottom_panel(player, bottom_frame)
 end
 
 ---@param player PlayerDataITL
@@ -856,6 +1050,8 @@ local function update_overview_gui(player)
     end
     player.iterations_at_last_left_panel_update = global.completed_interaction_count
   end
+
+  update_details(player)
 end
 
 local function update_overview_guis()
@@ -878,6 +1074,7 @@ local function destroy_overview_gui(player)
   player.pause_iteration_after_no_progress_elems = nil
   player.pause_iteration_checkbox = nil
   player.auto_pause_iterations_progress_bar = nil
+  player.per_setup_name_labels = {}
   player.per_setup_estimation_labels = {}
   player.per_setup_deviation_labels = {}
 end
@@ -1039,6 +1236,18 @@ local function init_state_with_progress_bar(duration)
   create_progress_bars()
 end
 
+---@param next_state StateITL
+local function set_next_state_to_switch_to(next_state)
+  local already_had_next_state = not not global.next_state
+  global.next_state = next_state
+  if already_had_next_state then
+    assert(not game.tick_paused)
+    return
+  end
+  global.was_paused_before_setting_next_state = game.tick_paused
+  unpause_game()
+end
+
 ---@param keep_built_setups boolean?
 ---@param keep_overviews boolean?
 function switch_to_idle(keep_built_setups, keep_overviews)
@@ -1066,6 +1275,12 @@ function switch_to_idle(keep_built_setups, keep_overviews)
       built_setup.deviation = nil
       built_setup.best_estimated_speed = nil
       built_setup.best_deviation = nil
+    end
+  end
+  if global.state == "iterating" then
+    for _, player in pairs(global.players) do
+      cleanup_details(player)
+      -- Tiles are whatever, they can stay. If `keep_built_setups` is falsy they'll get deleted anyway.
     end
   end
   global.state_start_tick = nil
@@ -1104,7 +1319,11 @@ end
 
 function switch_to_iterating()
   if global.state == "iterating" then return end
-  switch_to_idle(false, true)
+  if global.state ~= "idle" then
+    switch_to_idle(false, true)
+    set_next_state_to_switch_to("iterating")
+    return
+  end
   global.state = "iterating"
   global.rng = game.create_random_generator(global.seed)
   generate_initial_estimation_params()
@@ -1123,6 +1342,15 @@ local function switch_to_done()
   global.state = "done"
   ensure_overviews_are_shown()
 end
+
+---@type table<StateITL, fun()>
+local switch_to_state_lut = {
+  ["idle"] = switch_to_idle,
+  ["warming_up"] = switch_to_warming_up,
+  ["measuring"] = switch_to_measuring,
+  ["iterating"] = switch_to_iterating,
+  ["done"] = switch_to_done,
+}
 
 ---A state with a progress bar/meter has filled said progress 100%. What happens next?
 local function on_state_progress_finish()
@@ -1157,6 +1385,7 @@ local function init_player(player)
   local player_data = {
     player = player,
     player_index = player.index,
+    per_setup_name_labels = {},
     per_setup_estimation_labels = {},
     per_setup_deviation_labels = {},
     left_panel_visible = player_settings["itl-show-left-panel"].value--[[@as boolean]],
@@ -1227,6 +1456,17 @@ local function update_iterating()
 end
 
 script.on_event(ev.on_tick, function(event)
+  if global.next_state then
+    if global.was_paused_before_setting_next_state then
+      pause_game()
+    end
+    local switch_to_state = switch_to_state_lut[global.next_state]
+    global.was_paused_before_setting_next_state = nil
+    global.next_state = nil
+    switch_to_state()
+    return
+  end
+
   local tick = event.tick
   if global.state_finish_tick then
     if global.state_finish_tick == tick then
@@ -1248,6 +1488,14 @@ gui.register_for_all_gui_events()
 script.on_event(ev.on_gui_click, function(event)
   global.random_hash = (global.random_hash * 37 + event.tick) % (2^32)
   global.random_hash = (global.random_hash * 37 + game.ticks_played) % (2^32)
+  local elem = event.element
+  local tags = elem.tags
+  if tags.itl_setup_index then
+    local player = get_player(event)
+    if player then
+      on_setup_row_click(player, tags.itl_setup_index--[[@as integer]])
+    end
+  end
   gui.handle_gui_event(event)
 end)
 

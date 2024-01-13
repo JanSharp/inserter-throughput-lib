@@ -568,19 +568,19 @@ local create_entity_from_def_lut = {
 local function build_setup(surface, x, y, parsed_setup, configuration)
   local inserter
   local create_entity = surface.create_entity
-  local top_left_offset = parsed_setup.left_top_offset
+  local left_top_offset = parsed_setup.left_top_offset
   for _, entity_def in pairs(parsed_setup.grid) do
     local create_entity_from_def = create_entity_from_def_lut[entity_def.entity_id]
     inserter = create_entity_from_def(create_entity, {
-      x = x + 0.5 + entity_def.position.x + top_left_offset.x,
-      y = y + 0.5 + entity_def.position.y + top_left_offset.y,
+      x = x + 0.5 + entity_def.position.x + left_top_offset.x,
+      y = y + 0.5 + entity_def.position.y + left_top_offset.y,
     }, entity_def, configuration) or inserter
   end
   ---@cast inserter LuaEntity
   inserter.inserter_stack_size_override = configuration.stack_size
   inserter.pickup_position = {
-    x = x + 0.5 + parsed_setup.pickup.x + top_left_offset.x,
-    y = y + 0.5 + parsed_setup.pickup.y + top_left_offset.y,
+    x = x + 0.5 + parsed_setup.pickup.x + left_top_offset.x,
+    y = y + 0.5 + parsed_setup.pickup.y + left_top_offset.y,
   }
   local x_offset = parsed_setup.drop.x > parsed_setup.inserter.position.x and 51/256
     or parsed_setup.drop.x < parsed_setup.inserter.position.x and -51/256
@@ -589,8 +589,8 @@ local function build_setup(surface, x, y, parsed_setup, configuration)
     or parsed_setup.drop.y < parsed_setup.inserter.position.y and -51/256
     or 0
   inserter.drop_position = {
-    x = x + 0.5 + parsed_setup.drop.x + top_left_offset.x + x_offset,
-    y = y + 0.5 + parsed_setup.drop.y + top_left_offset.y + y_offset,
+    x = x + 0.5 + parsed_setup.drop.x + left_top_offset.x + x_offset,
+    y = y + 0.5 + parsed_setup.drop.y + left_top_offset.y + y_offset,
   }
   return inserter
 end
@@ -629,6 +629,7 @@ local function build_setups(filters)
       setup_count = setup_count + 1
       ---@type BuiltSetupITL
       global.built_setups[setup_count] = {
+        index = setup_count,
         parsed_setup = parsed_setup,
         configuration = configuration,
         inserter = inserter,
@@ -842,5 +843,6 @@ add_setup{
 ---cSpell:enable
 
 return {
+  build_setup = build_setup,
   build_setups = build_setups,
 }
