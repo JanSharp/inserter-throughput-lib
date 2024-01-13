@@ -378,13 +378,14 @@ update_params(params_util.get_params())
 ---@param from_length number @ Tiles.
 ---@param to_length number @ Tiles.
 ---@param does_chase boolean @ Is this inserter picking up from a belt?
+---@param from_is_belt boolean
 ---@return integer
-local function calculate_extension_ticks(extension_speed, from_length, to_length, does_chase)
+local function calculate_extension_ticks(extension_speed, from_length, to_length, does_chase, from_is_belt)
   local diff = math_abs(from_length - to_length)
   if not does_chase then
     return math_ceil(diff / extension_speed)
   end
-  return math_max(0, (diff + extension_distance_offset) / extension_speed)
+  return math_max(0, (diff + (from_is_belt and extension_distance_offset or 0)) / extension_speed)
 end
 
 ---@param rotation_speed number @ RealOrientation per tick.
@@ -392,8 +393,9 @@ end
 ---@param to_vector VectorXY @ Must be normalized.
 ---@param does_chase boolean @ Is this inserter picking up from a belt?
 ---@param from_length number @ Length of the from_vector, before normalization.
+---@param from_is_belt boolean
 ---@return integer
-local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, does_chase, from_length)
+local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, does_chase, from_length, from_is_belt)
   local from_orientation = vec.get_orientation(from_vector)
   local to_orientation = vec.get_orientation(to_vector)
 
@@ -410,8 +412,9 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
     return math_ceil(diff / rotation_speed)
   end
 
-  local orientation_for_half_a_tile
-    = vec.get_orientation{x = rotation_osset_from_tile_center % 0.51, y = -from_length}
+  local orientation_for_half_a_tile = from_is_belt
+    and vec.get_orientation{x = rotation_osset_from_tile_center % 0.51, y = -from_length}
+    or 0
   return math_max(0, (diff - orientation_for_half_a_tile) / rotation_speed)
 end
 
@@ -533,10 +536,11 @@ local function estimate_inserter_speed(def)
   local from_length = vec.get_length(from_vector)
   local to_length = vec.get_length(to_vector)
   local does_chase = def.chases_belt_items and def.from_type == "belt"
-  local extension_ticks = calculate_extension_ticks(def.extension_speed, from_length, to_length, does_chase)
+  local from_is_belt = def.from_type == "belt"
+  local extension_ticks = calculate_extension_ticks(def.extension_speed, from_length, to_length, does_chase, from_is_belt)
   vec.normalize(from_vector, from_length)
   vec.normalize(to_vector, to_length)
-  local rotation_ticks = calculate_rotation_ticks(def.rotation_speed, from_vector, to_vector, does_chase, from_length)
+  local rotation_ticks = calculate_rotation_ticks(def.rotation_speed, from_vector, to_vector, does_chase, from_length, from_is_belt)
   local ticks_per_swing = math_max(extension_ticks, rotation_ticks, 1)
   local extra_drop_ticks = calculate_extra_drop_ticks(def)
   local extra_pickup_ticks = estimate_extra_pickup_ticks(def, from_length)
