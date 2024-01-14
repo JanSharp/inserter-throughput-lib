@@ -159,6 +159,7 @@ add_action(function()
   game.speed = 1024
 end)
 wait_ticks(1)
+
 add_white_line_print()
 for _, splitter_direction in pairs{
   defines.direction.north,
@@ -179,6 +180,31 @@ do
   end
   add_white_line_print()
 end
+
+add_action(function()
+  global.splitter = global.surface.create_entity{
+    name = "ungodly-slow-splitter",
+    position = {x = 1, y = 0.5},
+  }
+  global.input_transport_line = global.splitter.get_transport_line(1)
+  global.input_transport_line.insert_at(8/256, {name = "iron-plate"})
+end)
+wait_ticks(1)
+for i = 1, 10 do
+  add_action(function()
+    if not global.finished_test and #global.input_transport_line == 0 then
+      print("Item placed at transport line position 8/256 moved "..i.." times before moving to output.")
+      global.finished_test = true
+    end
+  end)
+  wait_ticks(1)
+end
+add_action(function()
+  global.splitter.destroy()
+  global.finished_test = nil
+end)
+wait_ticks(1)
+
 add_action(function()
   game.speed = 1
 end)

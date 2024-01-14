@@ -56,3 +56,10 @@ splitter_drop_target_test_inserter.rotation_speed = 1024
 splitter_drop_target_test_inserter.extension_speed = 1024
 splitter_drop_target_test_inserter.stack_size_bonus = 1
 data:extend{splitter_drop_target_test_inserter}
+
+local ungodly_slow_splitter = util.copy(data.raw["splitter"]["splitter"])
+ungodly_slow_splitter.name = "ungodly-slow-splitter"
+ungodly_slow_splitter.speed = 1/256--0.25--
+ungodly_slow_splitter.structure = util.empty_sprite(1)
+ungodly_slow_splitter.structure_patch = util.empty_sprite(1)
+data:extend{ungodly_slow_splitter}
