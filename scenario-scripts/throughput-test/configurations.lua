@@ -56,11 +56,12 @@ local inserter_speeds = {
     rotation_speed = 0.04,
     extension_speed = 0.07,
   },
-  -- { -- super fast inserter
-  --   name = "itl-super-fast-inserter",
-  --   rotation_speed = 0.065,
-  --   extension_speed = 0.1,
-  -- },
+  -- TODO: rotation tick or extension tick calculation for this inserter is wrong in several situations with chest to splitter
+  { -- super fast inserter
+    name = "itl-super-fast-inserter",
+    rotation_speed = 0.065,
+    extension_speed = 0.1,
+  },
 }
 
 local stack_sizes = {

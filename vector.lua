@@ -202,6 +202,29 @@ local function rotate_by_orientation(vector, orientation_diff) ---@cast vector V
   return rotate_by_radians(vector, orientation_diff * rad360)
 end
 
+---@type table<defines.direction, fun(vector: VectorXY): VectorXY>
+local rotate_by_direction_lut = setmetatable({
+  [defines.direction.north] = function(vector) return vector end,
+  [defines.direction.east] = function(vector) vector.x, vector.y = -vector.y, vector.x; return vector end,
+  [defines.direction.south] = function(vector) vector.x, vector.y = -vector.x, -vector.y; return vector end,
+  [defines.direction.west] = function(vector) vector.x, vector.y = vector.y, -vector.x; return vector end,
+  [defines.direction.northeast] = function(vector) return rotate_by_radians(vector, 0.125 * rad360) end,
+  [defines.direction.southeast] = function(vector) return rotate_by_radians(vector, 0.375 * rad360) end,
+  [defines.direction.southwest] = function(vector) return rotate_by_radians(vector, 0.625 * rad360) end,
+  [defines.direction.northwest] = function(vector) return rotate_by_radians(vector, 0.875 * rad360) end,
+}, {
+  __index = function(_, direction) error("Invalid direction value: "..direction) end,
+})
+
+local direction_modulo = defines.direction.south * 2
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
+---@param direction defines.direction @ Can take negative values, which rotate counter clockwise.
+---@return T vector
+local function rotate_by_direction(vector, direction) ---@cast vector VectorXY
+  return rotate_by_direction_lut[direction % direction_modulo](vector)
+end
+
 ---Right to left... because math.
 ---@generic T : VectorXY
 ---@param matrix MatrixIJ
@@ -295,6 +318,7 @@ return {
   get_orientation = get_orientation,
   rotate_by_radians = rotate_by_radians,
   rotate_by_orientation = rotate_by_orientation,
+  rotate_by_direction = rotate_by_direction,
   transform_by_matrix = transform_by_matrix,
   rotation_matrix_by_radians = rotation_matrix_by_radians,
   rotation_matrix_by_orientation = rotation_matrix_by_orientation,

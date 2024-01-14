@@ -31,6 +31,8 @@
   - [ ] loaders
   - [ ] splitters
 
+- [ ] when dropping to loaders it's probably possible for them to get removed from the transport line faster than they would move 0.25 tiles, in other words dropping to loaders can probably be faster than dropping to belts. This is currently not considered anywhere in the logic.
+
 - [x] support ghost inserter
 - [x] support ghost targets
 
