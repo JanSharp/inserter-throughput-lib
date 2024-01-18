@@ -11,6 +11,7 @@
     "ignore": [
       "data-updates.lua",
       "notes.md",
+      "settings.lua",
       "scenario-scripts/**/*",
       "scenarios/**/*"
     ]
