@@ -14,6 +14,21 @@ local math_atan2 = math.atan2
 local math_sin = math.sin
 local math_cos = math.cos
 
+---@param left VectorXY
+---@param right VectorXY
+---@return boolean
+local function vec_equals(left, right)
+  return left.x == right.x and left.y == right.y
+end
+
+---@param left MatrixIJ
+---@param right MatrixIJ
+---@return boolean
+local function matrix_equals(left, right)
+  return left.ix == right.ix and left.jx == right.jx
+    and left.iy == right.iy and left.jy == right.jy
+end
+
 ---@generic T : VectorXY
 ---@param vector T
 ---@return T
@@ -301,6 +316,8 @@ local function compose_matrices(second, first)
 end
 
 return {
+  vec_equals = vec_equals,
+  matrix_equals = matrix_equals,
   copy = copy,
   get_length = get_length,
   set_length = set_length,
