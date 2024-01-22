@@ -2,7 +2,6 @@
 - [x] show completed iterations
 - [x] show iterations without progress progressbar
 - [x] show setups count in the overview GUI
-
 - [x] show left panel checkbox (per player)
 - [x] update left pane checkbox (per player)
 - [x] iterations per left panel update slider (per player)
@@ -15,30 +14,26 @@
   - [x] generate seed button
   - [x] reset and use new seed button
 - [x] map setting for everything above (probably only used on init)
-
 - [x] write files on auto pause
 - [x] write files on button press
 - [x] human readable header
 - [x] params in table form, formatted using %a with %.9f as comments at the end of the line
-
 - [ ] maybe add weighting to prefer negative deviations over positive ones
-
 - [x] make sure the inserter throughput measuring is actually accurate
 - [ ] measurement is accurate, yes, however when picking up from belts timing plays a huge role. Measurement pauses help with it but it's still not great. It would be better if each segment between pauses was measured truly separately and then ones with nearly identical averages get discarded. After that it can take the average of all the "unique" ones, making reducing the chance of uneven weights for some timings
-
 - [ ] add math for picking up from
   - [ ] undergrounds
   - [ ] loaders
   - [ ] splitters
-
 - [ ] when dropping to loaders it's probably possible for them to get removed from the transport line faster than they would move 0.25 tiles, in other words dropping to loaders can probably be faster than dropping to belts. This is currently not considered anywhere in the logic.
-
 - [x] support ghost inserter
 - [x] support ghost targets
-
 - [x] when picking up tons of items from a belt, extra pickup ticks must not be faster than the belt is moving
+- [ ] add readme
+- [ ] add changelog
+- [ ] think about improving the "set from inserter, entity or position" api
 
-- It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof.
+NOTE: It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof.
 
 # What affects belt item seeking
 
