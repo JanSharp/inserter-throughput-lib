@@ -26,12 +26,20 @@
   - [ ] loaders
   - [ ] splitters
 - [ ] when dropping to loaders it's probably possible for them to get removed from the transport line faster than they would move 0.25 tiles, in other words dropping to loaders can probably be faster than dropping to belts. This is currently not considered anywhere in the logic.
+- [ ] add necessary data for dropping to undergrounds and loaders, namely direction, input/output type and position relative to inserter
 - [x] support ghost inserter
 - [x] support ghost targets
 - [x] when picking up tons of items from a belt, extra pickup ticks must not be faster than the belt is moving
 - [ ] add readme
 - [ ] add changelog
 - [ ] think about improving the "set from inserter, entity or position" api
+- [ ] rename api file to inserter_throughput
+- [ ] rename "from" and "to" to "pickup" and "drop"
+- [ ] change data structure to be a definition table containing 3 more tables, inserter, pickup, and drop
+- [ ] add functions to create definitions from prototypes
+- [ ] add functions to create the inserter part of definitions
+- [ ] set version to 1.1.0
+- [ ] when setting stack size using an inserter and it ends up being 1, calculate the actual stack size using technologies and overrides, because newly placed inserters don't update their stack size yet
 
 NOTE: It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof.
 
