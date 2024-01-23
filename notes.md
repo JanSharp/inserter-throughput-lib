@@ -34,8 +34,8 @@
 - [ ] add changelog
 - [ ] think about improving the "set from inserter, entity or position" api
 - [x] rename api file to inserter_throughput
-- [ ] rename "from" and "to" to "pickup" and "drop"
-- [ ] change data structure to be a definition table containing 3 more tables, inserter, pickup, and drop
+- [x] rename "from" and "to" to "pickup" and "drop"
+- [x] change data structure to be a definition table containing 3 more tables, inserter, pickup, and drop
 - [ ] add functions to create definitions from prototypes
 - [ ] add functions to create the inserter part of definitions
 - [ ] set version to 1.1.0

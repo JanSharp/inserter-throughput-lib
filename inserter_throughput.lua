@@ -9,6 +9,11 @@ local math_min = math.min
 local math_max = math.max
 
 ---@class InserterThroughputDefinition
+---@field inserter InserterThroughputInserterDefinition
+---@field pickup InserterThroughputPickupDefinition
+---@field drop InserterThroughputDropDefinition
+
+---@class InserterThroughputInserterDefinition
 ---@field extension_speed number @ Tiles per tick.
 ---@field rotation_speed number @ RealOrientation per tick.
 ---@field stack_size integer @ Must be at least 1.
@@ -16,16 +21,20 @@ local math_max = math.max
 ---Modulo (%) 1 of x and y of the inserter's position.\
 ---Only used and required if `to_is_splitter` is true.
 ---@field inserter_position_in_tile VectorXY?
----@field from_type "inventory"|"belt"|"ground"
----@field from_vector VectorXY @ Relative to inserter position.
----@field from_belt_speed number? @ Tiles per tick of each item on the belt being picked up from.
----@field from_belt_direction defines.direction?
----@field from_belt_shape "left"|"right"|"straight"
----@field to_type "inventory"|"belt"|"ground"
----@field to_vector VectorXY @ Relative to inserter position.
----@field to_belt_speed number? @ Tiles per tick of each item on the belt being dropped off to.
----@field to_is_splitter boolean? @ Is the belt being dropped off to the input side of a splitter?
----@field to_belt_direction defines.direction? @ Only used and required if `to_is_splitter` is true.
+
+---@class InserterThroughputPickupDefinition
+---@field target_type "inventory"|"belt"|"ground"
+---@field vector VectorXY @ Relative to inserter position.
+---@field belt_speed number? @ Tiles per tick of each item on the belt being picked up from.
+---@field belt_direction defines.direction?
+---@field belt_shape "left"|"right"|"straight"
+
+---@class InserterThroughputDropDefinition
+---@field target_type "inventory"|"belt"|"ground"
+---@field vector VectorXY @ Relative to inserter position.
+---@field belt_speed number? @ Tiles per tick of each item on the belt being dropped off to.
+---@field belt_direction defines.direction? @ Only used and required if `to_is_splitter` is true.
+---@field is_splitter boolean? @ Is the belt being dropped off to the input side of a splitter?
 
 -- ---@field from_belt_is_backed_up boolean? @ Is the belt being picked up backed up or are items moving past?
 
@@ -278,11 +287,11 @@ end
 ---@param from_entity LuaEntity? @ Handles both real and ghost entities.
 local function set_from_based_on_entity(def, from_entity)
   local from_type = get_interactive_type(from_entity)
-  def.from_type = from_type
+  def.pickup.target_type = from_type
   if from_type == "belt" then ---@cast from_entity -nil
-    def.from_belt_speed = get_real_or_ghost_entity_prototype(from_entity).belt_speed
-    def.from_belt_direction = from_entity.direction
-    def.from_belt_shape = get_real_or_ghost_entity_type(from_entity) == "transport-belt"
+    def.pickup.belt_speed = get_real_or_ghost_entity_prototype(from_entity).belt_speed
+    def.pickup.belt_direction = from_entity.direction
+    def.pickup.belt_shape = get_real_or_ghost_entity_type(from_entity) == "transport-belt"
       and from_entity.belt_shape
       or "straight"
   end
@@ -296,9 +305,9 @@ end
 ---@param inserter LuaEntity? @ Handles both real and ghost inserters.
 local function set_from_based_on_position(def, surface, inserter_position, from_position, inserter)
   if inserter then
-    def.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
+    def.inserter.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
   end
-  def.from_vector = vec.sub(vec.copy(from_position), inserter_position)
+  def.pickup.vector = vec.sub(vec.copy(from_position), inserter_position)
   set_from_based_on_entity(def, get_pickup_target(surface, from_position, inserter))
 end
 
@@ -308,8 +317,8 @@ end
 local function set_from_based_on_inserter(def, inserter)
   local pickup_target = inserter.pickup_target
   if pickup_target then
-    def.from_vector = vec.sub(inserter.pickup_position, inserter.position)
-    def.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
+    def.pickup.vector = vec.sub(inserter.pickup_position, inserter.position)
+    def.inserter.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
     set_from_based_on_entity(def, pickup_target)
   else
     -- If the inserter is a ghost, the pickup_target is always nil, so this is ghost support. For non ghosts:
@@ -326,11 +335,11 @@ end
 ---@param to_entity LuaEntity? @ Handles both real and ghost entities.
 local function set_to_based_on_entity(def, to_entity)
   local to_type = get_interactive_type(to_entity)
-  def.to_type = to_type
+  def.drop.target_type = to_type
   if to_type == "belt" then ---@cast to_entity -nil
-    def.to_belt_speed = get_real_or_ghost_entity_prototype(to_entity).belt_speed
-    def.to_is_splitter = get_real_or_ghost_entity_type(to_entity) == "splitter"
-    def.to_belt_direction = to_entity.direction
+    def.drop.belt_speed = get_real_or_ghost_entity_prototype(to_entity).belt_speed
+    def.drop.is_splitter = get_real_or_ghost_entity_type(to_entity) == "splitter"
+    def.drop.belt_direction = to_entity.direction
   end
 end
 
@@ -342,9 +351,9 @@ end
 ---@param inserter LuaEntity? @ Handles both real and ghost inserters.
 local function set_to_based_on_position(def, surface, inserter_position, to_position, inserter)
   if inserter then
-    def.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
+    def.inserter.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
   end
-  def.to_vector = vec.sub(vec.copy(to_position), inserter_position)
+  def.drop.vector = vec.sub(vec.copy(to_position), inserter_position)
   set_to_based_on_entity(def, get_drop_target(surface, to_position, inserter))
 end
 
@@ -354,8 +363,8 @@ end
 local function set_to_based_on_inserter(def, inserter)
   local drop_target = inserter.drop_target
   if drop_target then
-    def.to_vector = vec.sub(inserter.drop_position, inserter.position)
-    def.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
+    def.drop.vector = vec.sub(inserter.drop_position, inserter.position)
+    def.inserter.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
     set_to_based_on_entity(def, inserter.drop_target)
   else
     -- Same as in `set_from_based_on_inserter`, see there for the comment.
@@ -435,47 +444,49 @@ end
 ---works on the assumption that those inconsistencies do not exist. Which means that there's a clean straight
 ---line for when a drop position is on the input vs output side, which is the exact center of the tile,
 ---inclusive. Inclusive being the important part, to make flipping consistent.
----@param def InserterThroughputDefinition
+---@param inserter InserterThroughputInserterDefinition
+---@param drop InserterThroughputDropDefinition
 ---@param to_vector VectorXY
 ---@return number?
-local function is_drop_to_input_of_splitter(def, to_vector)
-  local inserter_position_in_tile = def.inserter_position_in_tile
-  if not inserter_position_in_tile or not def.to_belt_direction then
-    assert(def.to_is_splitter, "How did is_drop_to_input_of_splitter get called with falsy 'to_is_splitter'?")
+local function is_drop_to_input_of_splitter(inserter, drop, to_vector)
+  local inserter_position_in_tile = inserter.inserter_position_in_tile
+  if not inserter_position_in_tile or not drop.belt_direction then
+    assert(drop.is_splitter, "How did is_drop_to_input_of_splitter get called with falsy 'to_is_splitter'?")
     error("When 'to_is_splitter' is true, 'inserter_position_in_tile' and 'to_belt_direction' must both be set.")
   end
   inserter_position_in_tile = vec.snap_to_map(vec.copy(inserter_position_in_tile))
   local position_in_drop_tile = vec.mod_scalar(vec.add(inserter_position_in_tile, to_vector), 1)
   local drop_vector_from_tile_center = vec.sub_scalar(position_in_drop_tile, 0.5)
-  local distance_from_center = vec.rotate_by_direction(drop_vector_from_tile_center, -def.to_belt_direction).y
+  local distance_from_center = vec.rotate_by_direction(drop_vector_from_tile_center, -drop.belt_direction).y
   return distance_from_center >= 0 and distance_from_center or nil
 end
 
----@param def InserterThroughputDefinition
+---@param inserter InserterThroughputInserterDefinition
+---@param drop InserterThroughputDropDefinition
 ---@param to_vector VectorXY
 ---@return integer ticks
 ---@return boolean? drops_to_input_of_splitter
-local function calculate_extra_drop_ticks(def, to_vector)
-  if def.to_type == "inventory" then
+local function calculate_extra_drop_ticks(inserter, drop, to_vector)
+  if drop.target_type == "inventory" then
     return 0
   end
-  if def.to_type == "ground" then
-    return def.stack_size - 1
+  if drop.target_type == "ground" then
+    return inserter.stack_size - 1
   end
   -- Is belt.
-  local stack_size = def.stack_size
-  local distance_on_input = def.to_is_splitter and is_drop_to_input_of_splitter(def, to_vector)
+  local stack_size = inserter.stack_size
+  local distance_on_input = drop.is_splitter and is_drop_to_input_of_splitter(inserter, drop, to_vector)
   if stack_size == 1 then return 0, not not distance_on_input end
   if stack_size == 2 then return 1, not not distance_on_input end
 
-  local ticks_per_item = 0.25 / def.to_belt_speed
+  local ticks_per_item = 0.25 / drop.belt_speed
   if distance_on_input then
     -- TODO: Return max possible drop speed instead of just a bool.
     -- TODO: Actually test how accurate this is with inserters not dropping exactly in the middle of splitters.
     -- It probably is very wrong, like I think stack_size -3 and -4 would need to change to -2 and use ticks_until_split somehow.
     -- TODO: This is currently only accurate for itl-express-transport-belt and faster. For the slower ones the estimate is too slow by ~0.3.
 
-    local ticks_until_split = math_max(distance_on_input / def.to_belt_speed)
+    local ticks_until_split = math_max(distance_on_input / drop.belt_speed)
     if ticks_until_split < ticks_per_item then
       local ticks_between_left_and_right = ticks_until_split + 1
       ticks_per_item = ticks_until_split + ticks_per_item / 2
@@ -517,67 +528,74 @@ local item_flow_vector_lut = {
 ---dropping to slow belts. In this case it could think it can pick up items faster than the belt can provide
 ---them, and the cap at the very end won't catch that because the inserter is also spending a lot of time
 ---dropping items to the slow belt. It is this logic that has to catch it.
----@param def InserterThroughputDefinition
+---@param inserter InserterThroughputInserterDefinition
+---@param pickup InserterThroughputPickupDefinition
 ---@param extra_pickup_ticks number
 ---@return number extra_pickup_ticks
-local function cap_extra_pickup_ticks_to_belt_speed(def, extra_pickup_ticks)
+local function cap_extra_pickup_ticks_to_belt_speed(inserter, pickup, extra_pickup_ticks)
   -- Magic 8. It's simply the amount of items that are already on the belt, before more items have to move in.
   -- If the inserter is so fast that there wouldn't actually be 8 items on the belt yet, there's the final
   -- cap that will handle that case.
-  local item_count = def.stack_size - 8
+  local item_count = inserter.stack_size - 8
   if item_count < 0 then return extra_pickup_ticks end -- Not required, just short circuit.
-  local ticks_per_item = (0.25 / def.from_belt_speed) / 2
+  local ticks_per_item = (0.25 / pickup.belt_speed) / 2
   return math_max(math_ceil(item_count * ticks_per_item), extra_pickup_ticks)
 end
 
----@param def InserterThroughputDefinition
+---@param inserter InserterThroughputInserterDefinition
+---@param pickup InserterThroughputPickupDefinition
 ---@param from_length number @ Length of the from_vector.
 ---@return number ticks
-local function estimate_extra_pickup_ticks(def, from_length)
-  if def.from_type == "inventory" then
+local function estimate_extra_pickup_ticks(inserter, pickup, from_length)
+  if pickup.target_type == "inventory" then
     return 0
   end
-  if def.from_type == "ground" then
-    return def.stack_size - 1
+  if pickup.target_type == "ground" then
+    return inserter.stack_size - 1
   end
   -- Is belt.
-  if not def.chases_belt_items then
+  if not inserter.chases_belt_items then
     -- TODO: verify that it does indeed take 1 tick per item.
     -- TODO: also take belt speed into account, if the stack size is > 8 then it would pick up all items and
     -- have to wait for more items.
     -- TODO: when the above is tested, return false in `is_estimate` when `def.chases_belt_items` is false.
-    return def.stack_size - 1
+    return inserter.stack_size - 1
   end
 
-  local item_flow_vector = item_flow_vector_lut[def.from_belt_direction][def.from_belt_shape]
+  local item_flow_vector = item_flow_vector_lut[pickup.belt_direction][pickup.belt_shape]
   -- Since item_flow_vector has a length of 1, extension_influence and rotation influence are values 0 to 1.
-  local extension_influence = math_abs(vec.dot_product(item_flow_vector, def.from_vector))
+  local extension_influence = math_abs(vec.dot_product(item_flow_vector, pickup.vector))
   local rotation_influence = 1 - extension_influence
   local influence_bleed = vec.get_orientation{x = 0.25, y = -from_length} * 4
 
-  local distance_due_to_belt_movement = def.from_belt_speed * belt_speed_multiplier
+  local distance_due_to_belt_movement = pickup.belt_speed * belt_speed_multiplier
 
-  local hand_speed = extension_influence * def.extension_speed
-    + extension_influence * influence_bleed * def.rotation_speed
-    + rotation_influence * def.rotation_speed
-    + rotation_influence * influence_bleed * def.extension_speed
+  local hand_speed = extension_influence * inserter.extension_speed
+    + extension_influence * influence_bleed * inserter.rotation_speed
+    + rotation_influence * inserter.rotation_speed
+    + rotation_influence * influence_bleed * inserter.extension_speed
   hand_speed = hand_speed + distance_due_to_belt_movement
 
   local ticks_per_item = 0.25 / hand_speed -- 0.25 == distance per item
-  return cap_extra_pickup_ticks_to_belt_speed(def, math_max(def.stack_size, ticks_per_item * def.stack_size))
+  return cap_extra_pickup_ticks_to_belt_speed(
+    inserter,
+    pickup,
+    math_max(inserter.stack_size, ticks_per_item * inserter.stack_size)
+  )
 end
 
 ---@param items_per_second number
----@param def InserterThroughputDefinition
+---@param pickup InserterThroughputPickupDefinition
+---@param drop InserterThroughputDropDefinition
 ---@param drops_to_input_of_splitter boolean?
 ---@return number items_per_second
-local function cap_to_belt_speed(items_per_second, def, drops_to_input_of_splitter)
-  if def.to_type == "belt" then
-    local max_per_second = 60 / (0.25 / def.to_belt_speed) * (drops_to_input_of_splitter and 2 or 1)
+local function cap_to_belt_speed(items_per_second, pickup, drop, drops_to_input_of_splitter)
+  if drop.target_type == "belt" then
+    local max_per_second = 60 / (0.25 / drop.belt_speed) * (drops_to_input_of_splitter and 2 or 1)
     items_per_second = math_min(max_per_second, items_per_second)
   end
-  if def.from_type == "belt" then
-    items_per_second = math_min(60 / (0.125 / def.from_belt_speed), items_per_second)
+  if pickup.target_type == "belt" then
+    items_per_second = math_min(60 / (0.125 / pickup.belt_speed), items_per_second)
   end
   return items_per_second
 end
@@ -585,29 +603,45 @@ end
 ---@param def InserterThroughputDefinition
 ---@return number items_per_second
 local function estimate_inserter_speed(def)
-  local from_vector = vec.snap_to_map(vec.copy(def.from_vector))
-  local to_vector = vec.snap_to_map(vec.copy(def.to_vector))
-  local from_length = vec.get_length(from_vector)
-  local to_length = vec.get_length(to_vector)
-  local does_chase = def.chases_belt_items and def.from_type == "belt"
-  local from_is_belt = def.from_type == "belt"
-  local extension_ticks = calculate_extension_ticks(def.extension_speed, from_length, to_length, does_chase, from_is_belt)
-  local extra_drop_ticks, drops_to_input_of_splitter = calculate_extra_drop_ticks(def, to_vector) -- before `to_vector` normalization.
-  vec.normalize(from_vector, from_length)
-  vec.normalize(to_vector, to_length)
-  local rotation_ticks = calculate_rotation_ticks(def.rotation_speed, from_vector, to_vector, does_chase, from_length, from_is_belt)
+  local inserter = def.inserter
+  local pickup = def.pickup
+  local drop = def.drop
+  local pickup_vector = vec.snap_to_map(vec.copy(pickup.vector))
+  local drop_vector = vec.snap_to_map(vec.copy(drop.vector))
+  local pickup_length = vec.get_length(pickup_vector)
+  local drop_length = vec.get_length(drop_vector)
+  local pickup_is_belt = pickup.target_type == "belt"
+  local does_chase = inserter.chases_belt_items and pickup_is_belt
+  local extension_ticks = calculate_extension_ticks(
+    inserter.extension_speed,
+    pickup_length,
+    drop_length,
+    does_chase,
+    pickup_is_belt
+  )
+  local extra_drop_ticks, drops_to_input_of_splitter = calculate_extra_drop_ticks(inserter, drop, drop_vector)
+  vec.normalize(pickup_vector, pickup_length)
+  vec.normalize(drop_vector, drop_length) -- Must happen _after_ `calculate_extra_drop_ticks`.
+  local rotation_ticks = calculate_rotation_ticks(
+    inserter.rotation_speed,
+    pickup_vector,
+    drop_vector,
+    does_chase,
+    pickup_length,
+    pickup_is_belt
+  )
   local ticks_per_swing = math_max(extension_ticks, rotation_ticks, 1)
-  local extra_pickup_ticks = estimate_extra_pickup_ticks(def, from_length)
+  local extra_pickup_ticks = estimate_extra_pickup_ticks(inserter, pickup, pickup_length)
   local total_ticks = (ticks_per_swing * 2) + extra_drop_ticks + extra_pickup_ticks
-  return cap_to_belt_speed(60 / total_ticks * def.stack_size, def, drops_to_input_of_splitter)
+  return cap_to_belt_speed(60 / total_ticks * inserter.stack_size, pickup, drop, drops_to_input_of_splitter)
 end
 
 ---Whether or not the given definition can be used accurate throughput calculation or if it is just an estimate.
 ---@param def InserterThroughputDefinition
 ---@return boolean
 local function is_estimate(def)
-  -- TODO: when addressing the TODOs for splitters in calculate_extra_drop_ticks, remove to_is_splitter from here.
-  return def.from_type == "belt" or not not def.to_is_splitter
+  -- TODO: when addressing the TODOs for splitters in calculate_extra_drop_ticks, remove drop.is_splitter from here.
+  return def.pickup.target_type == "belt" or not not def.drop.is_splitter
 end
 
 return {
