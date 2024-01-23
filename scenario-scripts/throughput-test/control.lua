@@ -1154,31 +1154,24 @@ local function ensure_all_setups_are_built()
   global.are_inserters_active = true
   global.built_setups = {}
   setups.build_setups{{pickup_type = "chest", drop_type = "splitter", without_output_loader = false}}
-  local nauvis = game.surfaces["nauvis"]
   for _, built_setup in pairs(global.built_setups) do
     local config = built_setup.configuration
+    local inserter_position = built_setup.inserter.position
     ---@type InserterThroughputDefinition
     local def = {
-      extension_speed = config.extension_speed,
-      rotation_speed = config.rotation_speed,
-      chases_belt_items = true,
-      stack_size = config.stack_size,
+      inserter = {
+        extension_speed = config.extension_speed,
+        rotation_speed = config.rotation_speed,
+        chases_belt_items = true,
+        stack_size = config.stack_size,
+        inserter_position_in_tile = inserter_throughput.get_position_in_tile(inserter_position),
+        pickup_vector = inserter_throughput.get_pickup_vector(built_setup.inserter, inserter_position),
+        drop_vector = inserter_throughput.get_drop_vector(built_setup.inserter, inserter_position),
+      },
     }
-    -- Cannot use the inserters directly because they need a tick to find their pickup and drop targets.
-    inserter_throughput.set_from_based_on_position(
-      def,
-      nauvis,
-      built_setup.inserter.position,
-      built_setup.inserter.pickup_position,
-      built_setup.inserter
-    )
-    inserter_throughput.set_to_based_on_position(
-      def,
-      nauvis,
-      built_setup.inserter.position,
-      built_setup.inserter.drop_position,
-      built_setup.inserter
-    )
+    -- Inserters take 1 tick to find their drop targets, however the functions below handle that case.
+    inserter_throughput.pickup_from_pickup_target_of_inserter(def, built_setup.inserter)
+    inserter_throughput.drop_to_drop_target_of_inserter(def, built_setup.inserter)
     built_setup.inserter_throughput_definition = def
   end
 end

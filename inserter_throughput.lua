@@ -17,23 +17,23 @@ local math_max = math.max
 ---@field extension_speed number @ Tiles per tick.
 ---@field rotation_speed number @ RealOrientation per tick.
 ---@field stack_size integer @ Must be at least 1.
+---@field pickup_vector VectorXY @ Relative to inserter position.
+---@field drop_vector VectorXY @ Relative to inserter position.
 ---@field chases_belt_items boolean @ https://lua-api.factorio.com/latest/prototypes/InserterPrototype.html#chases_belt_items
 ---Modulo (%) 1 of x and y of the inserter's position.\
----Only used and required if `to_is_splitter` is true.
+---Only used and required if `drop.is_splitter` is true.
 ---@field inserter_position_in_tile VectorXY?
 
 ---@class InserterThroughputPickupDefinition
 ---@field target_type "inventory"|"belt"|"ground"
----@field vector VectorXY @ Relative to inserter position.
 ---@field belt_speed number? @ Tiles per tick of each item on the belt being picked up from.
 ---@field belt_direction defines.direction?
 ---@field belt_shape "left"|"right"|"straight"
 
 ---@class InserterThroughputDropDefinition
 ---@field target_type "inventory"|"belt"|"ground"
----@field vector VectorXY @ Relative to inserter position.
 ---@field belt_speed number? @ Tiles per tick of each item on the belt being dropped off to.
----@field belt_direction defines.direction? @ Only used and required if `to_is_splitter` is true.
+---@field belt_direction defines.direction? @ Only used and required if `drop.is_splitter` is true.
 ---@field is_splitter boolean? @ Is the belt being dropped off to the input side of a splitter?
 
 -- ---@field from_belt_is_backed_up boolean? @ Is the belt being picked up backed up or are items moving past?
@@ -246,7 +246,7 @@ end
 ---@param position VectorXY
 ---@param inserter LuaEntity? @ Handles both real and ghost inserters.
 ---@return LuaEntity?
-local function get_pickup_target(surface, position, inserter)
+local function find_pickup_target(surface, position, inserter)
   -- Magic number 25/256 (0.09765625), tested by teleporting a car 1/256 at a time.
   return get_interactive_entity(surface, position, inserter, 25/256, get_pickup_target_priority)
 end
@@ -276,109 +276,392 @@ end
 ---@param position VectorXY
 ---@param inserter LuaEntity? @ Handles both real and ghost inserters.
 ---@return LuaEntity?
-local function get_drop_target(surface, position, inserter)
+local function find_drop_target(surface, position, inserter)
   -- Magic number 12/256 (0.046875), tested by teleporting a car 1/256 at a time.
   return get_interactive_entity(surface, position, inserter, 12/256, get_drop_target_priority)
 end
 
----Sets the `from_*` fields in def based on what it finds at the given position.\
----Does **not** set `from_vector` (because how would it).
+---Instead of getting the `pickup_position` which is an absolute position, this gets the vector from the
+---inserter to its `pickup_position`.
+---@param inserter LuaEntity
+---@param position MapPosition? @
+---Prefetched position of the inserter, to reduce the amount of api calls and allocations. Only makes sense in
+---code that runs _a lot_.
+---@return VectorXY pickup_vector
+local function get_pickup_vector(inserter, position)
+  position = position or inserter.position
+  return vec.sub(inserter.pickup_position, position)
+end
+
+---Instead of getting the `drop_position` which is an absolute position, this gets the vector from the
+---inserter to its `drop_position`.
+---@param inserter LuaEntity
+---@param position MapPosition? @
+---Prefetched position of the inserter, to reduce the amount of api calls and allocations. Only makes sense in
+---code that runs _a lot_.
+---@return VectorXY drop_vector
+local function get_drop_vector(inserter, position)
+  position = position or inserter.position
+  return vec.sub(inserter.drop_position, position)
+end
+
+local north_or_south_lut = {}
+do
+  -- Based on testing it seems like directions "round down" when it comes to determining the position within a
+  -- tile (using tile width and height). northeast gets treated as north, southeast gets treated as east, etc.
+  -- And this code is written with support for 16 directions. At least in theory, who knows if the behavior is
+  -- the same in 2.0.
+  local directions_count = table_size(defines.direction)
+  for _, direction in pairs(defines.direction) do
+    if (direction % (directions_count / 2)) <= (directions_count / 4) then
+      north_or_south_lut[direction] = true
+    end
+  end
+end
+
+---Pretends off grid inserters are placed on the grid, so they get zero special treatment.
+---@param prototype LuaEntityPrototype
+---@param direction defines.direction
+---@return MapPosition position @ The position within a tile, so x and y are in the [0, 1) range.
+local function get_default_inserter_position(prototype, direction)
+  local is_north_north = north_or_south_lut[direction]
+  local width = is_north_north and prototype.tile_width or prototype.tile_height
+  local height = is_north_north and prototype.tile_height or prototype.tile_width
+  return {
+    x = (width % 2) * 0.5, -- Even: 0. odd: 0.5.
+    y = (height % 2) * 0.5, -- Even: 0. odd: 0.5.
+  }
+end
+
+---@generic T : VectorXY
+---@param position T
+---@return T position_within_tile @ A new table.
+local function get_position_in_tile(position) ---@cast position VectorXY
+  return vec.mod_scalar(vec.copy(position), 1)
+end
+
+---@param prototype LuaEntityPrototype
+---@return boolean
+local function is_placeable_off_grid(prototype)
+  local flags = prototype.flags -- Can be nil when all flags are unset.
+  return flags and flags["placeable-off-grid"] or false
+end
+
+---This appears to match the game's snapping logic perfectly.
+---@generic T : VectorXY
+---@param prototype LuaEntityPrototype
+---@param position T @ Gets modified.
+---@param direction defines.direction
+---@return T position @ The same table as the `position` parameter.
+local function snap_build_position(prototype, position, direction) ---@cast position VectorXY
+  if is_placeable_off_grid(prototype) then return position end
+  local is_north_south = north_or_south_lut[direction]
+  local width = is_north_south and prototype.tile_width or prototype.tile_height
+  local height = is_north_south and prototype.tile_height or prototype.tile_width
+  position.x = (width % 2) == 0
+    and math.floor(position.x + 0.5) -- even
+    or math.floor(position.x) + 0.5 -- odd
+  position.y = (height % 2) == 0
+    and math.floor(position.y + 0.5) -- even
+    or math.floor(position.y) + 0.5 -- odd
+  return position
+end
+
+---Rounds down to nearest valid number, because items on belts also use fixed point positions. Same resolution
+---as MapPositions, so 1/256.
+---@param belt_speed number @ Tiles per tick.
+---@return number belt_speed
+local function normalize_belt_speed(belt_speed)
+  return belt_speed - (belt_speed % (1/256))
+end
+
 ---@param def InserterThroughputDefinition
----@param from_entity LuaEntity? @ Handles both real and ghost entities.
-local function set_from_based_on_entity(def, from_entity)
-  local from_type = get_interactive_type(from_entity)
-  def.pickup.target_type = from_type
-  if from_type == "belt" then ---@cast from_entity -nil
-    def.pickup.belt_speed = get_real_or_ghost_entity_prototype(from_entity).belt_speed
-    def.pickup.belt_direction = from_entity.direction
-    def.pickup.belt_shape = get_real_or_ghost_entity_type(from_entity) == "transport-belt"
-      and from_entity.belt_shape
+---@return InserterThroughputDropDefinition drop_data
+local function get_drop_data(def)
+  local drop = def.drop
+  if drop then return drop end
+  drop = {}
+  def.drop = drop
+  return drop
+end
+
+---@param def InserterThroughputDefinition
+---@return InserterThroughputPickupDefinition pickup_data
+local function get_pickup_data(def)
+  local pickup = def.pickup
+  if pickup then return pickup end
+  pickup = {}
+  def.pickup = pickup
+  return pickup
+end
+
+---@param def InserterThroughputDefinition
+---@return InserterThroughputInserterDefinition inserter_data
+local function get_inserter_data(def)
+  local inserter = def.inserter
+  if inserter then return inserter end
+  inserter = {}
+  def.inserter = inserter
+  return inserter
+end
+
+-- pickup from prototype
+
+---@param def InserterThroughputDefinition
+local function pickup_from_inventory(def)
+  local pickup = get_pickup_data(def)
+  pickup.target_type = "inventory"
+end
+
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+---@param belt_shape "left"|"right"|"straight" @ Example: If a belt is pointing at this belt from the left, set "left".
+local function pickup_from_belt(def, belt_speed, belt_direction, belt_shape)
+  local pickup = get_pickup_data(def)
+  pickup.target_type = "belt"
+  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_direction = belt_direction
+  pickup.belt_shape = belt_shape
+end
+
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+local function pickup_From_splitter(def, belt_speed, belt_direction)
+  local pickup = get_pickup_data(def)
+  pickup.target_type = "belt"
+  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_direction = belt_direction
+  pickup.belt_shape = "straight"
+end
+
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+local function pickup_From_loader(def, belt_speed, belt_direction)
+  local pickup = get_pickup_data(def)
+  pickup.target_type = "belt"
+  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_direction = belt_direction
+  pickup.belt_shape = "straight"
+end
+
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+local function pickup_from_underground(def, belt_speed, belt_direction)
+  local pickup = get_pickup_data(def)
+  pickup.target_type = "belt"
+  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_direction = belt_direction
+  pickup.belt_shape = "straight"
+end
+
+---@param def InserterThroughputDefinition
+local function pickup_from_ground(def)
+  local pickup = get_pickup_data(def)
+  pickup.target_type = "ground"
+end
+
+-- pickup from real world
+
+---@param def InserterThroughputDefinition
+---@param entity LuaEntity?
+local function pickup_from_entity(def, entity)
+  local pickup = get_pickup_data(def)
+  local from_type = get_interactive_type(entity)
+  pickup.target_type = from_type
+  if from_type == "belt" then ---@cast entity -nil
+    pickup.belt_speed = get_real_or_ghost_entity_prototype(entity).belt_speed
+    pickup.belt_direction = entity.direction
+    pickup.belt_shape = get_real_or_ghost_entity_type(entity) == "transport-belt"
+      and entity.belt_shape
       or "straight"
   end
 end
 
----Sets the `from_*` fields in def based on what it finds at the given position.
 ---@param def InserterThroughputDefinition
 ---@param surface LuaSurface
----@param inserter_position VectorXY
----@param from_position VectorXY
----@param inserter LuaEntity? @ Handles both real and ghost inserters.
-local function set_from_based_on_position(def, surface, inserter_position, from_position, inserter)
-  if inserter then
-    def.inserter.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
-  end
-  def.pickup.vector = vec.sub(vec.copy(from_position), inserter_position)
-  set_from_based_on_entity(def, get_pickup_target(surface, from_position, inserter))
+---@param position MapPosition @ Must use xy notation.
+---@param inserter LuaEntity? @ Used to prevent an inserter from picking up from itself, provide it if applicable.
+local function pickup_from_position(def, surface, position, inserter)
+  pickup_from_entity(def, find_pickup_target(surface, position, inserter))
 end
 
----Sets the `from_*` fields in def based on the current pickup position and target of the given inserter.
 ---@param def InserterThroughputDefinition
----@param inserter LuaEntity @ Handles both real and ghost inserters.
-local function set_from_based_on_inserter(def, inserter)
+---@param inserter LuaEntity @ Ghost or real.
+local function pickup_from_pickup_target_of_inserter(def, inserter)
   local pickup_target = inserter.pickup_target
   if pickup_target then
-    def.pickup.vector = vec.sub(inserter.pickup_position, inserter.position)
-    def.inserter.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
-    set_from_based_on_entity(def, pickup_target)
+    pickup_from_entity(def, pickup_target)
   else
-    -- If the inserter is a ghost, the pickup_target is always nil, so this is ghost support. For non ghosts:
-    -- The inserter could have been placed in this tick, in which case the pickup and drop targets have not
-    -- been evaluated yet, so we're using the position as the fallback. The chance of this being the case is
-    -- especially high when the game is tick paused.
-    set_from_based_on_position(def, inserter.surface, inserter.position, inserter.pickup_position, inserter)
+    pickup_from_position(def, inserter.surface, inserter.pickup_position)
   end
 end
 
----Sets the `to_*` fields in def based on what it finds at the given position.\
----Does **not** set `to_vector` (because how would it).
+-- drop to prototype
+
 ---@param def InserterThroughputDefinition
----@param to_entity LuaEntity? @ Handles both real and ghost entities.
-local function set_to_based_on_entity(def, to_entity)
-  local to_type = get_interactive_type(to_entity)
-  def.drop.target_type = to_type
-  if to_type == "belt" then ---@cast to_entity -nil
-    def.drop.belt_speed = get_real_or_ghost_entity_prototype(to_entity).belt_speed
-    def.drop.is_splitter = get_real_or_ghost_entity_type(to_entity) == "splitter"
-    def.drop.belt_direction = to_entity.direction
+local function drop_to_inventory(def)
+  local drop = get_drop_data(def)
+  drop.target_type = "inventory"
+end
+
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+local function drop_to_belt(def, belt_speed, belt_direction)
+  local drop = get_drop_data(def)
+  drop.target_type = "belt"
+  drop.is_splitter = false
+  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_direction = belt_direction
+end
+
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+local function drop_to_splitter(def, belt_speed, belt_direction)
+  local drop = get_drop_data(def)
+  drop.target_type = "belt"
+  drop.is_splitter = true
+  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_direction = belt_direction
+end
+
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+local function drop_to_loader(def, belt_speed, belt_direction)
+  local drop = get_drop_data(def)
+  drop.target_type = "belt"
+  drop.is_splitter = false
+  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_direction = belt_direction
+end
+
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+local function drop_to_underground(def, belt_speed, belt_direction)
+  local drop = get_drop_data(def)
+  drop.target_type = "belt"
+  drop.is_splitter = false
+  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_direction = belt_direction
+end
+
+---@param def InserterThroughputDefinition
+local function drop_to_ground(def)
+  local drop = get_drop_data(def)
+  drop.target_type = "ground"
+end
+
+-- drop to real world
+
+---@param def InserterThroughputDefinition
+---@param entity LuaEntity?
+local function drop_to_entity(def, entity)
+  local drop = get_drop_data(def)
+  local to_type = get_interactive_type(entity)
+  drop.target_type = to_type
+  if to_type == "belt" then ---@cast entity -nil
+    drop.belt_speed = get_real_or_ghost_entity_prototype(entity).belt_speed
+    drop.is_splitter = get_real_or_ghost_entity_type(entity) == "splitter"
+    drop.belt_direction = entity.direction
   end
 end
 
----Sets the `to_*` fields in def based on what it finds at the given position.
 ---@param def InserterThroughputDefinition
 ---@param surface LuaSurface
----@param inserter_position VectorXY
----@param to_position VectorXY
----@param inserter LuaEntity? @ Handles both real and ghost inserters.
-local function set_to_based_on_position(def, surface, inserter_position, to_position, inserter)
-  if inserter then
-    def.inserter.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
-  end
-  def.drop.vector = vec.sub(vec.copy(to_position), inserter_position)
-  set_to_based_on_entity(def, get_drop_target(surface, to_position, inserter))
+---@param position MapPosition @ Must use xy notation.
+---@param inserter LuaEntity? @ Used to prevent an inserter from dropping to itself, provide it if applicable.
+local function drop_to_position(def, surface, position, inserter)
+  drop_to_entity(def, find_drop_target(surface, position, inserter))
 end
 
----Sets the `to_*` fields in def based on the current drop position and target of the given inserter.
 ---@param def InserterThroughputDefinition
----@param inserter LuaEntity @ Handles both real and ghost inserters.
-local function set_to_based_on_inserter(def, inserter)
+---@param inserter LuaEntity @ Ghost or real.
+local function drop_to_drop_target_of_inserter(def, inserter)
   local drop_target = inserter.drop_target
   if drop_target then
-    def.drop.vector = vec.sub(inserter.drop_position, inserter.position)
-    def.inserter.inserter_position_in_tile = vec.mod_scalar(inserter.position, 1)
-    set_to_based_on_entity(def, inserter.drop_target)
+    drop_to_entity(def, drop_target)
   else
-    -- Same as in `set_from_based_on_inserter`, see there for the comment.
-    set_to_based_on_position(def, inserter.surface, inserter.position, inserter.drop_position, inserter)
+    drop_to_position(def, inserter.surface, inserter.drop_position)
   end
 end
 
----Sets the `from_*` and `to_*` fields in def based on the current pickup and drop positions and targets of
----the given inserter.
+-- inserter data
+
+---@param inserter_data InserterThroughputInserterDefinition
+---@param inserter_prototype LuaEntityPrototype
+---@param direction defines.direction
+---@param position VectorXY? @ Default: `get_default_inserter_position(inserter_prototype, direction)`.
+---@param stack_size integer
+local function inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, direction, position, stack_size)
+  inserter_data.rotation_speed = inserter_prototype.inserter_rotation_speed
+  inserter_data.extension_speed = inserter_prototype.inserter_extension_speed
+  -- inserter_data.stack_size = inserter_prototype.inserter_stack_size_bonus + 1 -- TODO: which force to use?
+  inserter_data.stack_size = stack_size
+  inserter_data.chases_belt_items = inserter_prototype.inserter_chases_belt_items
+  position = position -- `snap_build_position` checks if it is placeable off grid.
+    and vec.mod_scalar(snap_build_position(inserter_prototype, vec.copy(position), direction), 1)
+    or get_default_inserter_position(inserter_prototype, direction)
+  inserter_data.inserter_position_in_tile = position
+end
+
 ---@param def InserterThroughputDefinition
----@param inserter LuaEntity @ Handles both real and ghost inserters.
-local function set_from_and_to_based_on_inserter(def, inserter)
-  set_from_based_on_inserter(def, inserter)
-  set_to_based_on_inserter(def, inserter)
+---@param inserter_prototype LuaEntityPrototype
+---@param direction defines.direction
+---@param position VectorXY? @ Default: `get_default_inserter_position(inserter_prototype, direction)`.
+---@param stack_size integer
+local function inserter_data_based_on_prototype(def, inserter_prototype, direction, position, stack_size)
+  local inserter_data = get_inserter_data(def)
+  inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, direction, position, stack_size)
+  inserter_data.pickup_vector = vec.rotate_by_direction(inserter_prototype.inserter_pickup_position, direction)--[[@as MapPosition]]
+  inserter_data.drop_vector = vec.rotate_by_direction(inserter_prototype.inserter_drop_position, direction)--[[@as MapPosition]]
+end
+
+---@param def InserterThroughputDefinition
+---@param inserter LuaEntity
+local function inserter_data_based_on_entity(def, inserter)
+  local inserter_data = get_inserter_data(def)
+  local position = inserter.position
+  inserter_data_based_on_prototype_except_for_vectors(
+    inserter_data,
+    get_real_or_ghost_entity_prototype(inserter),
+    inserter.direction,
+    position,
+    -- TODO: I remember checking this on ghosts, but it probably also takes 1 tick to update after being placed
+    inserter.inserter_target_pickup_count
+  )
+  inserter_data.pickup_vector = get_pickup_vector(inserter, position)
+  inserter_data.drop_vector = get_drop_vector(inserter, position)
+end
+
+-- definitions
+
+---@return InserterThroughputDefinition
+local function make_empty_definition()
+  ---@type InserterThroughputDefinition
+  local def = {
+    inserter = {},
+    pickup = {},
+    drop = {},
+  }
+  return def
+end
+
+---@param inserter LuaEntity
+---@param def_to_reuse InserterThroughputDefinition?
+---@return InserterThroughputDefinition
+local function make_full_definition_for_inserter(inserter, def_to_reuse)
+  local def = def_to_reuse or make_empty_definition()
+  inserter_data_based_on_entity(def, inserter)
+  pickup_from_pickup_target_of_inserter(def, inserter)
+  drop_to_drop_target_of_inserter(def, inserter)
+  return def
 end
 
 local extension_distance_offset ---@type number
@@ -564,7 +847,7 @@ local function estimate_extra_pickup_ticks(inserter, pickup, from_length)
 
   local item_flow_vector = item_flow_vector_lut[pickup.belt_direction][pickup.belt_shape]
   -- Since item_flow_vector has a length of 1, extension_influence and rotation influence are values 0 to 1.
-  local extension_influence = math_abs(vec.dot_product(item_flow_vector, pickup.vector))
+  local extension_influence = math_abs(vec.dot_product(item_flow_vector, inserter.pickup_vector))
   local rotation_influence = 1 - extension_influence
   local influence_bleed = vec.get_orientation{x = 0.25, y = -from_length} * 4
 
@@ -606,8 +889,8 @@ local function estimate_inserter_speed(def)
   local inserter = def.inserter
   local pickup = def.pickup
   local drop = def.drop
-  local pickup_vector = vec.snap_to_map(vec.copy(pickup.vector))
-  local drop_vector = vec.snap_to_map(vec.copy(drop.vector))
+  local pickup_vector = vec.snap_to_map(vec.copy(inserter.pickup_vector))
+  local drop_vector = vec.snap_to_map(vec.copy(inserter.drop_vector))
   local pickup_length = vec.get_length(pickup_vector)
   local drop_length = vec.get_length(drop_vector)
   local pickup_is_belt = pickup.target_type == "belt"
@@ -646,13 +929,35 @@ end
 
 return {
   get_target_type = get_interactive_type,
-  set_from_based_on_entity = set_from_based_on_entity,
-  set_from_based_on_position = set_from_based_on_position,
-  set_from_based_on_inserter = set_from_based_on_inserter,
-  set_to_based_on_entity = set_to_based_on_entity,
-  set_to_based_on_position = set_to_based_on_position,
-  set_to_based_on_inserter = set_to_based_on_inserter,
-  set_from_and_to_based_on_inserter = set_from_and_to_based_on_inserter,
+  get_pickup_vector = get_pickup_vector,
+  get_drop_vector = get_drop_vector,
+  get_default_inserter_position = get_default_inserter_position,
+  get_position_in_tile = get_position_in_tile,
+  is_placeable_off_grid = is_placeable_off_grid,
+  snap_build_position = snap_build_position,
+  normalize_belt_speed = normalize_belt_speed,
+  pickup_from_inventory = pickup_from_inventory,
+  pickup_from_belt = pickup_from_belt,
+  pickup_From_splitter = pickup_From_splitter,
+  pickup_From_loader = pickup_From_loader,
+  pickup_from_underground = pickup_from_underground,
+  pickup_from_ground = pickup_from_ground,
+  pickup_from_entity = pickup_from_entity,
+  pickup_from_position = pickup_from_position,
+  pickup_from_pickup_target_of_inserter = pickup_from_pickup_target_of_inserter,
+  drop_to_inventory = drop_to_inventory,
+  drop_to_belt = drop_to_belt,
+  drop_to_splitter = drop_to_splitter,
+  drop_to_loader = drop_to_loader,
+  drop_to_underground = drop_to_underground,
+  drop_to_ground = drop_to_ground,
+  drop_to_entity = drop_to_entity,
+  drop_to_position = drop_to_position,
+  drop_to_drop_target_of_inserter = drop_to_drop_target_of_inserter,
+  inserter_data_based_on_prototype = inserter_data_based_on_prototype,
+  inserter_data_based_on_entity = inserter_data_based_on_entity,
+  make_empty_definition = make_empty_definition,
+  make_full_definition_for_inserter = make_full_definition_for_inserter,
   estimate_inserter_speed = estimate_inserter_speed,
   is_estimate = is_estimate,
 }

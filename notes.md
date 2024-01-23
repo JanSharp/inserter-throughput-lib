@@ -32,12 +32,12 @@
 - [x] when picking up tons of items from a belt, extra pickup ticks must not be faster than the belt is moving
 - [ ] add readme
 - [ ] add changelog
-- [ ] think about improving the "set from inserter, entity or position" api
+- [x] think about improving the "set from inserter, entity or position" api
 - [x] rename api file to inserter_throughput
 - [x] rename "from" and "to" to "pickup" and "drop"
 - [x] change data structure to be a definition table containing 3 more tables, inserter, pickup, and drop
-- [ ] add functions to create definitions from prototypes
-- [ ] add functions to create the inserter part of definitions
+- [x] add functions to create definitions from prototypes
+- [x] add functions to create the inserter part of definitions
 - [ ] set version to 1.1.0
 - [ ] when setting stack size using an inserter and it ends up being 1, calculate the actual stack size using technologies and overrides, because newly placed inserters don't update their stack size yet
 
