@@ -33,7 +33,7 @@
 - [ ] add readme
 - [ ] add changelog
 - [ ] think about improving the "set from inserter, entity or position" api
-- [ ] rename api file to inserter_throughput
+- [x] rename api file to inserter_throughput
 - [ ] rename "from" and "to" to "pickup" and "drop"
 - [ ] change data structure to be a definition table containing 3 more tables, inserter, pickup, and drop
 - [ ] add functions to create definitions from prototypes

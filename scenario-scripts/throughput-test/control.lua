@@ -2,7 +2,7 @@
 local setups = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.setups")
 local configurations = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.configurations")
 local gui = require("__inserter-throughput-lib__.scenario-scripts.throughput-test.gui")
-local inserter_throughput = require("__inserter-throughput-lib__.api")
+local inserter_throughput = require("__inserter-throughput-lib__.inserter_throughput")
 local params_util = require("__inserter-throughput-lib__.params_util")
 local vec = require("__inserter-throughput-lib__.vector")
 
