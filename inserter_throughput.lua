@@ -9,8 +9,14 @@ local math_min = math.min
 local math_max = math.max
 
 ---@class InserterThroughputDefinition
+---Functions setting fields in this table accept it being `nil`, they'll simply create the table. The estimate
+---functions however require this table to be non `nil`.
 ---@field inserter InserterThroughputInserterDefinition
+---Functions setting fields in this table accept it being `nil`, they'll simply create the table. The estimate
+---functions however require this table to be non `nil`.
 ---@field pickup InserterThroughputPickupDefinition
+---Functions setting fields in this table accept it being `nil`, they'll simply create the table. The estimate
+---functions however require this table to be non `nil`.
 ---@field drop InserterThroughputDropDefinition
 
 ---@class InserterThroughputInserterDefinition
@@ -284,7 +290,7 @@ end
 ---Instead of getting the `pickup_position` which is an absolute position, this gets the vector from the
 ---inserter to its `pickup_position`.
 ---@param inserter LuaEntity
----@param position MapPosition? @
+---@param position VectorXY? @
 ---Prefetched position of the inserter, to reduce the amount of api calls and allocations. Only makes sense in
 ---code that runs _a lot_.
 ---@return VectorXY pickup_vector
@@ -296,7 +302,7 @@ end
 ---Instead of getting the `drop_position` which is an absolute position, this gets the vector from the
 ---inserter to its `drop_position`.
 ---@param inserter LuaEntity
----@param position MapPosition? @
+---@param position VectorXY? @
 ---Prefetched position of the inserter, to reduce the amount of api calls and allocations. Only makes sense in
 ---code that runs _a lot_.
 ---@return VectorXY drop_vector
@@ -322,8 +328,8 @@ end
 ---Pretends off grid inserters are placed on the grid, so they get zero special treatment.
 ---@param prototype LuaEntityPrototype
 ---@param direction defines.direction
----@return MapPosition position @ The position within a tile, so x and y are in the [0, 1) range.
-local function get_default_inserter_position(prototype, direction)
+---@return VectorXY position @ The position within a tile, so x and y are in the [0, 1) range.
+local function get_default_inserter_position_in_tile(prototype, direction)
   local is_north_north = north_or_south_lut[direction]
   local width = is_north_north and prototype.tile_width or prototype.tile_height
   local height = is_north_north and prototype.tile_height or prototype.tile_width
@@ -407,12 +413,17 @@ end
 
 -- pickup from prototype
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 local function pickup_from_inventory(def)
   local pickup = get_pickup_data(def)
   pickup.target_type = "inventory"
+  pickup.belt_speed = nil
+  pickup.belt_direction = nil
+  pickup.belt_shape = nil
 end
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
@@ -425,6 +436,7 @@ local function pickup_from_belt(def, belt_speed, belt_direction, belt_shape)
   pickup.belt_shape = belt_shape
 end
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
@@ -436,6 +448,7 @@ local function pickup_From_splitter(def, belt_speed, belt_direction)
   pickup.belt_shape = "straight"
 end
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
@@ -447,6 +460,7 @@ local function pickup_From_loader(def, belt_speed, belt_direction)
   pickup.belt_shape = "straight"
 end
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
@@ -458,14 +472,19 @@ local function pickup_from_underground(def, belt_speed, belt_direction)
   pickup.belt_shape = "straight"
 end
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 local function pickup_from_ground(def)
   local pickup = get_pickup_data(def)
   pickup.target_type = "ground"
+  pickup.belt_speed = nil
+  pickup.belt_direction = nil
+  pickup.belt_shape = nil
 end
 
 -- pickup from real world
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param entity LuaEntity?
 local function pickup_from_entity(def, entity)
@@ -478,17 +497,23 @@ local function pickup_from_entity(def, entity)
     pickup.belt_shape = get_real_or_ghost_entity_type(entity) == "transport-belt"
       and entity.belt_shape
       or "straight"
+  else
+    pickup.belt_speed = nil
+    pickup.belt_direction = nil
+    pickup.belt_shape = nil
   end
 end
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param surface LuaSurface
----@param position MapPosition @ Must use xy notation.
+---@param position VectorXY @ A MapPosition on the given surface.
 ---@param inserter LuaEntity? @ Used to prevent an inserter from picking up from itself, provide it if applicable.
 local function pickup_from_position(def, surface, position, inserter)
   pickup_from_entity(def, find_pickup_target(surface, position, inserter))
 end
 
+---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity @ Ghost or real.
 local function pickup_from_pickup_target_of_inserter(def, inserter)
@@ -502,12 +527,17 @@ end
 
 -- drop to prototype
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 local function drop_to_inventory(def)
   local drop = get_drop_data(def)
   drop.target_type = "inventory"
+  drop.is_splitter = nil
+  drop.belt_speed = nil
+  drop.belt_direction = nil
 end
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
@@ -519,6 +549,7 @@ local function drop_to_belt(def, belt_speed, belt_direction)
   drop.belt_direction = belt_direction
 end
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
@@ -530,6 +561,7 @@ local function drop_to_splitter(def, belt_speed, belt_direction)
   drop.belt_direction = belt_direction
 end
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
@@ -541,6 +573,7 @@ local function drop_to_loader(def, belt_speed, belt_direction)
   drop.belt_direction = belt_direction
 end
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
@@ -552,14 +585,19 @@ local function drop_to_underground(def, belt_speed, belt_direction)
   drop.belt_direction = belt_direction
 end
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 local function drop_to_ground(def)
   local drop = get_drop_data(def)
   drop.target_type = "ground"
+  drop.is_splitter = nil
+  drop.belt_speed = nil
+  drop.belt_direction = nil
 end
 
 -- drop to real world
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param entity LuaEntity?
 local function drop_to_entity(def, entity)
@@ -567,20 +605,26 @@ local function drop_to_entity(def, entity)
   local to_type = get_interactive_type(entity)
   drop.target_type = to_type
   if to_type == "belt" then ---@cast entity -nil
-    drop.belt_speed = get_real_or_ghost_entity_prototype(entity).belt_speed
     drop.is_splitter = get_real_or_ghost_entity_type(entity) == "splitter"
+    drop.belt_speed = get_real_or_ghost_entity_prototype(entity).belt_speed
     drop.belt_direction = entity.direction
+  else
+    drop.is_splitter = nil
+    drop.belt_speed = nil
+    drop.belt_direction = nil
   end
 end
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param surface LuaSurface
----@param position MapPosition @ Must use xy notation.
+---@param position VectorXY @ A MapPosition on the given surface.
 ---@param inserter LuaEntity? @ Used to prevent an inserter from dropping to itself, provide it if applicable.
 local function drop_to_position(def, surface, position, inserter)
   drop_to_entity(def, find_drop_target(surface, position, inserter))
 end
 
+---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity @ Ghost or real.
 local function drop_to_drop_target_of_inserter(def, inserter)
@@ -594,10 +638,11 @@ end
 
 -- inserter data
 
+---Sets all fields in `def.inserter`.
 ---@param inserter_data InserterThroughputInserterDefinition
 ---@param inserter_prototype LuaEntityPrototype
 ---@param direction defines.direction
----@param position VectorXY? @ Default: `get_default_inserter_position(inserter_prototype, direction)`.
+---@param position VectorXY? @ Default: `get_default_inserter_position_in_tile(inserter_prototype, direction)`.
 ---@param stack_size integer
 local function inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, direction, position, stack_size)
   inserter_data.rotation_speed = inserter_prototype.inserter_rotation_speed
@@ -607,14 +652,15 @@ local function inserter_data_based_on_prototype_except_for_vectors(inserter_data
   inserter_data.chases_belt_items = inserter_prototype.inserter_chases_belt_items
   position = position -- `snap_build_position` checks if it is placeable off grid.
     and vec.mod_scalar(snap_build_position(inserter_prototype, vec.copy(position), direction), 1)
-    or get_default_inserter_position(inserter_prototype, direction)
+    or get_default_inserter_position_in_tile(inserter_prototype, direction)
   inserter_data.inserter_position_in_tile = position
 end
 
+---Sets all fields in `def.inserter`.
 ---@param def InserterThroughputDefinition
 ---@param inserter_prototype LuaEntityPrototype
 ---@param direction defines.direction
----@param position VectorXY? @ Default: `get_default_inserter_position(inserter_prototype, direction)`.
+---@param position VectorXY? @ Default: `get_default_inserter_position_in_tile(inserter_prototype, direction)`.
 ---@param stack_size integer
 local function inserter_data_based_on_prototype(def, inserter_prototype, direction, position, stack_size)
   local inserter_data = get_inserter_data(def)
@@ -623,6 +669,7 @@ local function inserter_data_based_on_prototype(def, inserter_prototype, directi
   inserter_data.drop_vector = vec.rotate_by_direction(inserter_prototype.inserter_drop_position, direction)--[[@as MapPosition]]
 end
 
+---Sets all fields in `def.inserter`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity
 local function inserter_data_based_on_entity(def, inserter)
@@ -642,6 +689,7 @@ end
 
 -- definitions
 
+---Creates a new definition with `def.inserter`, `def.pickup` and `def.drop` all being empty tables.
 ---@return InserterThroughputDefinition
 local function make_empty_definition()
   ---@type InserterThroughputDefinition
@@ -653,6 +701,7 @@ local function make_empty_definition()
   return def
 end
 
+---Sets all fields in `def.inserter`, `def.pickup` and `def.drop`. In other words: everything.
 ---@param inserter LuaEntity
 ---@param def_to_reuse InserterThroughputDefinition?
 ---@return InserterThroughputDefinition
@@ -933,7 +982,7 @@ return {
   get_target_type = get_interactive_type,
   get_pickup_vector = get_pickup_vector,
   get_drop_vector = get_drop_vector,
-  get_default_inserter_position = get_default_inserter_position,
+  get_default_inserter_position_in_tile = get_default_inserter_position_in_tile,
   get_position_in_tile = get_position_in_tile,
   is_placeable_off_grid = is_placeable_off_grid,
   snap_build_position = snap_build_position,
