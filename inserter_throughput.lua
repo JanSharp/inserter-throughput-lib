@@ -827,9 +827,10 @@ end
 
 ---@param inserter InserterThroughputInserterDefinition
 ---@param pickup InserterThroughputPickupDefinition
----@param from_length number @ Length of the from_vector.
+---@param pickup_vector VectorXY
+---@param pickup_length number @ Length of the `pickup_vector`.
 ---@return number ticks
-local function estimate_extra_pickup_ticks(inserter, pickup, from_length)
+local function estimate_extra_pickup_ticks(inserter, pickup, pickup_vector, pickup_length)
   if pickup.target_type == "inventory" then
     return 0
   end
@@ -847,9 +848,9 @@ local function estimate_extra_pickup_ticks(inserter, pickup, from_length)
 
   local item_flow_vector = item_flow_vector_lut[pickup.belt_direction][pickup.belt_shape]
   -- Since item_flow_vector has a length of 1, extension_influence and rotation influence are values 0 to 1.
-  local extension_influence = math_abs(vec.dot_product(item_flow_vector, inserter.pickup_vector))
+  local extension_influence = math_abs(vec.dot_product(item_flow_vector, pickup_vector))
   local rotation_influence = 1 - extension_influence
-  local influence_bleed = vec.get_orientation{x = 0.25, y = -from_length} * 4
+  local influence_bleed = vec.get_orientation{x = 0.25, y = -pickup_length} * 4
 
   local distance_due_to_belt_movement = pickup.belt_speed * belt_speed_multiplier
 
@@ -903,8 +904,10 @@ local function estimate_inserter_speed(def)
     pickup_is_belt
   )
   local extra_drop_ticks, drops_to_input_of_splitter = calculate_extra_drop_ticks(inserter, drop, drop_vector)
+  local extra_pickup_ticks = estimate_extra_pickup_ticks(inserter, pickup, pickup_vector, pickup_length)
+  -- Normalize just before `calculate_rotation_ticks` because it is the only func that needs them normalized.
   vec.normalize(pickup_vector, pickup_length)
-  vec.normalize(drop_vector, drop_length) -- Must happen _after_ `calculate_extra_drop_ticks`.
+  vec.normalize(drop_vector, drop_length)
   local rotation_ticks = calculate_rotation_ticks(
     inserter.rotation_speed,
     pickup_vector,
@@ -914,7 +917,6 @@ local function estimate_inserter_speed(def)
     pickup_is_belt
   )
   local ticks_per_swing = math_max(extension_ticks, rotation_ticks, 1)
-  local extra_pickup_ticks = estimate_extra_pickup_ticks(inserter, pickup, pickup_length)
   local total_ticks = (ticks_per_swing * 2) + extra_drop_ticks + extra_pickup_ticks
   return cap_to_belt_speed(60 / total_ticks * inserter.stack_size, pickup, drop, drops_to_input_of_splitter)
 end
