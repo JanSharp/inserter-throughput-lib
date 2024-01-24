@@ -1165,13 +1165,11 @@ local function ensure_all_setups_are_built()
         chases_belt_items = true,
         stack_size = config.stack_size,
         inserter_position_in_tile = inserter_throughput.get_position_in_tile(inserter_position),
-        pickup_vector = inserter_throughput.get_pickup_vector(built_setup.inserter, inserter_position),
-        drop_vector = inserter_throughput.get_drop_vector(built_setup.inserter, inserter_position),
       },
     }
-    -- Inserters take 1 tick to find their drop targets, however the functions below handle that case.
-    inserter_throughput.pickup_from_pickup_target_of_inserter(def, built_setup.inserter)
-    inserter_throughput.drop_to_drop_target_of_inserter(def, built_setup.inserter)
+    -- Inserters take 1 tick to find their pickup and drop targets, however the functions below handle that.
+    inserter_throughput.pickup_from_pickup_target_of_inserter_and_set_pickup_vector(def, built_setup.inserter)
+    inserter_throughput.drop_to_drop_target_of_inserter_and_set_drop_vector(def, built_setup.inserter)
     built_setup.inserter_throughput_definition = def
   end
 end

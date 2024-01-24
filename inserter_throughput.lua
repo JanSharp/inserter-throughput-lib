@@ -513,6 +513,21 @@ local function pickup_from_position(def, surface, position, inserter)
   pickup_from_entity(def, find_pickup_target(surface, position, inserter))
 end
 
+---Sets all fields in `def.pickup`.\
+---Also sets `def.inserter.pickup_vector` using `position` and `inserter_position`.
+---@param def InserterThroughputDefinition
+---@param surface LuaSurface
+---@param position VectorXY @ A MapPosition on the given surface.
+---@param inserter LuaEntity? @ Used to prevent an inserter from picking up from itself, provide it if applicable.
+---@param inserter_position VectorXY? @ Default: `inserter.position`. Required if `inserter` is `nil`.
+local function pickup_from_position_and_set_pickup_vector(def, surface, position, inserter, inserter_position)
+  pickup_from_position(def, surface, position, inserter)
+  inserter_position = inserter_position
+    or assert(inserter, "'inserter' and 'inserter_position' must not both be 'nil'.").position
+  local inserter_data = get_inserter_data(def)
+  inserter_data.pickup_vector = vec.sub(vec.copy(position), inserter_position)
+end
+
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity @ Ghost or real.
@@ -523,6 +538,16 @@ local function pickup_from_pickup_target_of_inserter(def, inserter)
   else
     pickup_from_position(def, inserter.surface, inserter.pickup_position)
   end
+end
+
+---Sets all fields in `def.pickup`.\
+---Also sets `def.inserter.pickup_vector` using `inserter.pickup_position` and `inserter.position`.
+---@param def InserterThroughputDefinition
+---@param inserter LuaEntity @ Ghost or real.
+local function pickup_from_pickup_target_of_inserter_and_set_pickup_vector(def, inserter)
+  pickup_from_pickup_target_of_inserter(def, inserter)
+  local inserter_data = get_inserter_data(def)
+  inserter_data.pickup_vector = vec.sub(inserter.pickup_position, inserter.position)
 end
 
 -- drop to prototype
@@ -624,6 +649,21 @@ local function drop_to_position(def, surface, position, inserter)
   drop_to_entity(def, find_drop_target(surface, position, inserter))
 end
 
+---Sets all fields in `def.drop`.\
+---Also sets `def.inserter.drop_vector` using `position` and `inserter_position`.
+---@param def InserterThroughputDefinition
+---@param surface LuaSurface
+---@param position VectorXY @ A MapPosition on the given surface.
+---@param inserter LuaEntity? @ Used to prevent an inserter from dropping to itself, provide it if applicable.
+---@param inserter_position VectorXY? @ Default: `inserter.position`. Required if `inserter` is `nil`.
+local function drop_to_position_and_set_drop_vector(def, surface, position, inserter, inserter_position)
+  drop_to_position(def, surface, position, inserter)
+  inserter_position = inserter_position
+    or assert(inserter, "'inserter' and 'inserter_position' must not both be 'nil'.").position
+  local inserter_data = get_inserter_data(def)
+  inserter_data.drop_vector = vec.sub(vec.copy(position), inserter_position)
+end
+
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity @ Ghost or real.
@@ -634,6 +674,16 @@ local function drop_to_drop_target_of_inserter(def, inserter)
   else
     drop_to_position(def, inserter.surface, inserter.drop_position)
   end
+end
+
+---Sets all fields in `def.drop`.\
+---Also sets `def.inserter.drop_vector` using `inserter.drop_position` and `inserter.position`.
+---@param def InserterThroughputDefinition
+---@param inserter LuaEntity @ Ghost or real.
+local function drop_to_drop_target_of_inserter_and_set_drop_vector(def, inserter)
+  drop_to_drop_target_of_inserter(def, inserter)
+  local inserter_data = get_inserter_data(def)
+  inserter_data.drop_vector = vec.sub(inserter.drop_position, inserter.position)
 end
 
 -- inserter data
@@ -995,7 +1045,9 @@ return {
   pickup_from_ground = pickup_from_ground,
   pickup_from_entity = pickup_from_entity,
   pickup_from_position = pickup_from_position,
+  pickup_from_position_and_set_pickup_vector = pickup_from_position_and_set_pickup_vector,
   pickup_from_pickup_target_of_inserter = pickup_from_pickup_target_of_inserter,
+  pickup_from_pickup_target_of_inserter_and_set_pickup_vector = pickup_from_pickup_target_of_inserter_and_set_pickup_vector,
   drop_to_inventory = drop_to_inventory,
   drop_to_belt = drop_to_belt,
   drop_to_splitter = drop_to_splitter,
@@ -1004,7 +1056,9 @@ return {
   drop_to_ground = drop_to_ground,
   drop_to_entity = drop_to_entity,
   drop_to_position = drop_to_position,
+  drop_to_position_and_set_drop_vector = drop_to_position_and_set_drop_vector,
   drop_to_drop_target_of_inserter = drop_to_drop_target_of_inserter,
+  drop_to_drop_target_of_inserter_and_set_drop_vector = drop_to_drop_target_of_inserter_and_set_drop_vector,
   inserter_data_based_on_prototype = inserter_data_based_on_prototype,
   inserter_data_based_on_entity = inserter_data_based_on_entity,
   make_empty_definition = make_empty_definition,
