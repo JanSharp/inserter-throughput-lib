@@ -8,6 +8,15 @@ local math_floor = math.floor
 local math_min = math.min
 local math_max = math.max
 
+---@alias InserterThroughputTargetType
+---| "inventory"
+---| "ground"
+---| "belt"
+---| "linked-belt"
+---| "underground"
+---| "splitter"
+---| "loader"
+
 ---@class InserterThroughputDefinition
 ---Functions setting fields in this table accept it being `nil`, they'll simply create the table. The estimate
 ---functions however require this table to be non `nil`.
@@ -30,17 +39,36 @@ local math_max = math.max
 ---Only used and required if `drop.is_splitter` is true.
 ---@field inserter_position_in_tile VectorXY?
 
----@class InserterThroughputPickupDefinition
----@field target_type "inventory"|"belt"|"ground"
----@field belt_speed number? @ Tiles per tick of each item on the belt being picked up from.
----@field belt_direction defines.direction?
----@field belt_shape "left"|"right"|"straight"
+---@class InserterThroughputLoaderDefinitionBase
+---`LuaEntity::loader_type`. `"input"`: items flow into the loader, `"output"`: items flow out of the loader.
+---@field loader_type "input"|"output"?
+---@field loader_belt_length number? @ `LuaEntityPrototype::belt_length`.
+---How many tiles is the drop distance away from the actual belt of the loader? When dropping onto the tile of
+---a 1x2 loader which is next to a container, this is `1`. When dropping onto the tile where items get put
+---onto or taken from the belt, this is 0.
+---@field loader_tile_distance_from_belt_start integer?
 
----@class InserterThroughputDropDefinition
----@field target_type "inventory"|"belt"|"ground"
----@field belt_speed number? @ Tiles per tick of each item on the belt being dropped off to.
----@field belt_direction defines.direction? @ Only used and required if `drop.is_splitter` is true.
----@field is_splitter boolean? @ Is the belt being dropped off to the input side of a splitter?
+---@class InserterThroughputPickupDefinition : InserterThroughputLoaderDefinitionBase
+---@field target_type InserterThroughputTargetType
+---Tiles per tick of each item on the belt being picked up from.\
+---Required for all belt connectables.
+---@field belt_speed number?
+---This is the direction items flow in. Always. Even for undergrounds and loaders, be it input or output.\
+---Required for all belt connectables.
+---@field belt_direction defines.direction?
+---@field belt_shape "left"|"right"|"straight"? @ `LuaEntity::belt_shape`. Just used for `"belt"`s.
+---`LuaEntity::linked_belt_type`. `"input"`: items go into the belt, `"output"`: items come out of the belt.
+---@field linked_belt_type "input"|"output"?
+---`LuaEntity::belt_to_ground_type`. `"input"`: goes underground, `"output"`: emerges from the ground.
+---@field underground_type "input"|"output"?
+
+---@class InserterThroughputDropDefinition : InserterThroughputLoaderDefinitionBase
+---@field target_type InserterThroughputTargetType
+---Tiles per tick of each item on the belt being dropped off to.\
+---Required for all belt connectables.
+---@field belt_speed number?
+---Only used and required when dropping to `"splitter"`s or `"loader"`s.
+---@field belt_direction defines.direction?
 
 -- ---@field from_belt_is_backed_up boolean? @ Is the belt being picked up backed up or are items moving past?
 
@@ -81,13 +109,13 @@ local interactive_prototypes = {
 }
 
 ---Out of all the prototypes an inserter can interact with, these are just the belt connectable ones.
-local belt_connectable = {
-  ["linked-belt"] = true,
-  ["loader-1x1"] = true,
-  ["loader"] = true,
-  ["splitter"] = true,
-  ["transport-belt"] = true,
-  ["underground-belt"] = true,
+local belt_connectable_target_type_lut = {
+  ["linked-belt"] = "linked-belt",
+  ["loader-1x1"] = "loader",
+  ["loader"] = "loader",
+  ["splitter"] = "splitter",
+  ["transport-belt"] = "belt",
+  ["underground-belt"] = "underground",
 }
 
 local can_always_pickup = {
@@ -173,13 +201,20 @@ local function get_real_or_ghost_entity_prototype(entity)
 end
 
 ---@param entity LuaEntity? @ Handles both real and ghost entities.
----@return "ground"|"inventory"|"belt"
-local function get_interactive_type(entity)
+---@return InserterThroughputTargetType
+local function get_target_type(entity)
   if not entity then return "ground" end
   local entity_type = get_real_or_ghost_entity_type(entity)
-  if belt_connectable[entity_type] then return "belt" end
+  local belt_type = belt_connectable_target_type_lut[entity_type]
+  if belt_type then return belt_type end
   if interactive_prototypes[entity_type] then return "inventory" end
   return "ground"
+end
+
+---@param target_type InserterThroughputTargetType
+---@return boolean
+local function is_belt_connectable_target_type(target_type)
+  return target_type ~= "inventory" and target_type ~= "ground"
 end
 
 local get_interactive_entity
@@ -234,14 +269,14 @@ local function get_pickup_target_priority(entity, inserter)
   if entity_type == "entity-ghost" then
     if (entity.ghost_prototype.flags or {})["no-automated-item-removal"] then return 0 end
     entity_type = entity.ghost_type
-    return belt_connectable[entity_type] and 2
+    return belt_connectable_target_type_lut[entity_type] and 2
       or can_always_pickup[entity_type] and 1
       -- This might not be the best way to check for a burner energy source however it works.
       or can_pickup_if_burner[entity_type] and entity.ghost_prototype.burner_prototype and 1
       or 0
   end
   if (entity.prototype.flags or {})["no-automated-item-removal"] then return 0 end
-  return belt_connectable[entity_type] and 4
+  return belt_connectable_target_type_lut[entity_type] and 4
     or entity_type == "straight-rail"
     or entity_type == "curved-rail"
     or entity.get_output_inventory() and 3
@@ -271,7 +306,7 @@ local function get_drop_target_priority(entity, inserter)
     prototype_key = "ghost_prototype"
   end
   if (entity[prototype_key].flags or {})["no-automated-item-insertion"] then return 0 end
-  return belt_connectable[entity_type] and (2 + offset)
+  return belt_connectable_target_type_lut[entity_type] and (2 + offset)
     or can_always_drop[entity_type] and (1 + offset)
     -- This might not be the best way to check for a burner energy source however it works.
     or can_drop_if_burner[entity_type] and entity[prototype_key].burner_prototype and (1 + offset)
@@ -381,6 +416,27 @@ local function normalize_belt_speed(belt_speed)
   return belt_speed - (belt_speed % (1/256))
 end
 
+---@param tab table?
+local function clear_table(tab)
+  if not tab then return end
+  local next = next
+  local k = next(tab)
+  while k do
+    local next_k = next(tab, k)
+    tab[k] = nil
+    k = next_k
+  end
+end
+
+---@param loader_data InserterThroughputLoaderDefinitionBase
+---@param loader LuaEntity
+---@param target_position VectorXY @ The pickup or drop position.
+local function loaders_are_hard(loader_data, loader, target_position)
+  loader_data.loader_type = loader.loader_type
+  loader_data.loader_belt_length = get_real_or_ghost_entity_prototype(loader).belt_length
+  loader_data.loader_tile_distance_from_belt_start = 0 -- TODO: how to evaluate this?
+end
+
 ---@param def InserterThroughputDefinition
 ---@return InserterThroughputDropDefinition drop_data
 local function get_drop_data(def)
@@ -416,11 +472,17 @@ end
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 local function pickup_from_inventory(def)
+  clear_table(def.pickup)
   local pickup = get_pickup_data(def)
   pickup.target_type = "inventory"
-  pickup.belt_speed = nil
-  pickup.belt_direction = nil
-  pickup.belt_shape = nil
+end
+
+---Sets all fields in `def.pickup`.
+---@param def InserterThroughputDefinition
+local function pickup_from_ground(def)
+  clear_table(def.pickup)
+  local pickup = get_pickup_data(def)
+  pickup.target_type = "ground"
 end
 
 ---Sets all fields in `def.pickup`.
@@ -429,6 +491,7 @@ end
 ---@param belt_direction defines.direction
 ---@param belt_shape "left"|"right"|"straight" @ Example: If a belt is pointing at this belt from the left, set "left".
 local function pickup_from_belt(def, belt_speed, belt_direction, belt_shape)
+  clear_table(def.pickup)
   local pickup = get_pickup_data(def)
   pickup.target_type = "belt"
   pickup.belt_speed = normalize_belt_speed(belt_speed)
@@ -440,46 +503,67 @@ end
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
-local function pickup_From_splitter(def, belt_speed, belt_direction)
+---@param linked_belt_type "input"|"output" @ `LuaEntity::linked_belt_type`. `"input"`: items go into the belt, `"output"`: items come out of the belt.
+local function pickup_from_linked_belt(def, belt_speed, belt_direction, linked_belt_type)
+  clear_table(def.pickup)
   local pickup = get_pickup_data(def)
-  pickup.target_type = "belt"
+  pickup.target_type = "linked-belt"
   pickup.belt_speed = normalize_belt_speed(belt_speed)
   pickup.belt_direction = belt_direction
-  pickup.belt_shape = "straight"
 end
 
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
-local function pickup_From_loader(def, belt_speed, belt_direction)
+---@param underground_type "input"|"output" @ `LuaEntity::belt_to_ground_type`. `"input"`: goes underground, `"output"`: emerges from the ground.
+local function pickup_from_underground(def, belt_speed, belt_direction, underground_type)
+  clear_table(def.pickup)
   local pickup = get_pickup_data(def)
-  pickup.target_type = "belt"
+  pickup.target_type = "underground"
   pickup.belt_speed = normalize_belt_speed(belt_speed)
   pickup.belt_direction = belt_direction
-  pickup.belt_shape = "straight"
+  pickup.underground_type = underground_type
 end
 
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
-local function pickup_from_underground(def, belt_speed, belt_direction)
+local function pickup_from_splitter(def, belt_speed, belt_direction)
+  clear_table(def.pickup)
   local pickup = get_pickup_data(def)
-  pickup.target_type = "belt"
+  pickup.target_type = "splitter"
   pickup.belt_speed = normalize_belt_speed(belt_speed)
   pickup.belt_direction = belt_direction
-  pickup.belt_shape = "straight"
 end
 
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
-local function pickup_from_ground(def)
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_direction defines.direction
+---@param loader_type "input"|"output" @ `LuaEntity::loader_type`. `"input"`: items flow into the loader, `"output"`: items flow out of the loader.
+---@param loader_belt_length number @ `LuaEntityPrototype::belt_length`.
+---@param loader_tile_distance_from_belt_start integer @
+---How many tiles is the drop distance away from the actual belt of the loader? When dropping onto the tile of
+---a 1x2 loader which is next to a container, this is `1`. When dropping onto the tile where items get put
+---onto or taken from the belt, this is 0.
+local function pickup_from_loader(
+  def,
+  belt_speed,
+  belt_direction,
+  loader_type,
+  loader_belt_length,
+  loader_tile_distance_from_belt_start
+)
+  clear_table(def.pickup)
   local pickup = get_pickup_data(def)
-  pickup.target_type = "ground"
-  pickup.belt_speed = nil
-  pickup.belt_direction = nil
-  pickup.belt_shape = nil
+  pickup.target_type = "loader"
+  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_direction = belt_direction
+  pickup.loader_type = loader_type
+  pickup.loader_belt_length = loader_belt_length
+  pickup.loader_tile_distance_from_belt_start = loader_tile_distance_from_belt_start
 end
 
 -- pickup from real world
@@ -487,20 +571,25 @@ end
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
 ---@param entity LuaEntity?
-local function pickup_from_entity(def, entity)
+---@param pickup_position VectorXY? @ Required if `entity` is any loader.
+local function pickup_from_entity(def, entity, pickup_position)
+  clear_table(def.pickup)
   local pickup = get_pickup_data(def)
-  local from_type = get_interactive_type(entity)
-  pickup.target_type = from_type
-  if from_type == "belt" then ---@cast entity -nil
+  local target_type = get_target_type(entity)
+  pickup.target_type = target_type
+  if is_belt_connectable_target_type(target_type) then ---@cast entity -nil
     pickup.belt_speed = get_real_or_ghost_entity_prototype(entity).belt_speed
     pickup.belt_direction = entity.direction
-    pickup.belt_shape = get_real_or_ghost_entity_type(entity) == "transport-belt"
-      and entity.belt_shape
-      or "straight"
-  else
-    pickup.belt_speed = nil
-    pickup.belt_direction = nil
-    pickup.belt_shape = nil
+  end
+  if target_type == "belt" then ---@cast entity -nil
+    pickup.belt_shape = entity.belt_shape
+  elseif target_type == "linked-belt" then ---@cast entity -nil
+    pickup.linked_belt_type = entity.linked_belt_type
+  elseif target_type == "underground" then ---@cast entity -nil
+    pickup.underground_type = entity.belt_to_ground_type
+  elseif target_type == "loader" then ---@cast entity -nil
+    if not pickup_position then error("'pickup_position' is required to set pickup data for loaders.") end
+    loaders_are_hard(pickup, entity, pickup_position)
   end
 end
 
@@ -510,7 +599,7 @@ end
 ---@param position VectorXY @ A MapPosition on the given surface.
 ---@param inserter LuaEntity? @ Used to prevent an inserter from picking up from itself, provide it if applicable.
 local function pickup_from_position(def, surface, position, inserter)
-  pickup_from_entity(def, find_pickup_target(surface, position, inserter))
+  pickup_from_entity(def, find_pickup_target(surface, position, inserter), position)
 end
 
 ---Sets all fields in `def.pickup`.\
@@ -534,7 +623,7 @@ end
 local function pickup_from_pickup_target_of_inserter(def, inserter)
   local pickup_target = inserter.pickup_target
   if pickup_target then
-    pickup_from_entity(def, pickup_target)
+    pickup_from_entity(def, pickup_target, inserter.pickup_position)
   else
     pickup_from_position(def, inserter.surface, inserter.pickup_position)
   end
@@ -555,23 +644,46 @@ end
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 local function drop_to_inventory(def)
+  clear_table(def.drop)
   local drop = get_drop_data(def)
   drop.target_type = "inventory"
-  drop.is_splitter = nil
-  drop.belt_speed = nil
-  drop.belt_direction = nil
+end
+
+---Sets all fields in `def.drop`.
+---@param def InserterThroughputDefinition
+local function drop_to_ground(def)
+  clear_table(def.drop)
+  local drop = get_drop_data(def)
+  drop.target_type = "ground"
 end
 
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
----@param belt_direction defines.direction
-local function drop_to_belt(def, belt_speed, belt_direction)
+local function drop_to_belt(def, belt_speed)
+  clear_table(def.drop)
   local drop = get_drop_data(def)
   drop.target_type = "belt"
-  drop.is_splitter = false
   drop.belt_speed = normalize_belt_speed(belt_speed)
-  drop.belt_direction = belt_direction
+end
+
+---Sets all fields in `def.drop`.
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+local function drop_to_linked_belt(def, belt_speed)
+  clear_table(def.drop)
+  local drop = get_drop_data(def)
+  drop.target_type = "linked-belt"
+  drop.belt_speed = normalize_belt_speed(belt_speed)
+end
+
+---Sets all fields in `def.drop`.
+---@param def InserterThroughputDefinition
+---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+local function drop_to_underground(def, belt_speed)
+  local drop = get_drop_data(def)
+  drop.target_type = "underground"
+  drop.belt_speed = normalize_belt_speed(belt_speed)
 end
 
 ---Sets all fields in `def.drop`.
@@ -579,9 +691,9 @@ end
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
 local function drop_to_splitter(def, belt_speed, belt_direction)
+  clear_table(def.drop)
   local drop = get_drop_data(def)
-  drop.target_type = "belt"
-  drop.is_splitter = true
+  drop.target_type = "splitter"
   drop.belt_speed = normalize_belt_speed(belt_speed)
   drop.belt_direction = belt_direction
 end
@@ -590,34 +702,28 @@ end
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
 ---@param belt_direction defines.direction
-local function drop_to_loader(def, belt_speed, belt_direction)
+---@param loader_type "input"|"output" @ `LuaEntity::loader_type`. `"input"`: items flow into the loader, `"output"`: items flow out of the loader.
+---@param loader_belt_length number @ `LuaEntityPrototype::belt_length`.
+---@param loader_tile_distance_from_belt_start integer @
+---How many tiles is the drop distance away from the actual belt of the loader? When dropping onto the tile of
+---a 1x2 loader which is next to a container, this is `1`. When dropping onto the tile where items get put
+---onto or taken from the belt, this is 0.
+local function drop_to_loader(
+  def,
+  belt_speed,
+  belt_direction,
+  loader_type,
+  loader_belt_length,
+  loader_tile_distance_from_belt_start
+)
+  clear_table(def.drop)
   local drop = get_drop_data(def)
-  drop.target_type = "belt"
-  drop.is_splitter = false
+  drop.target_type = "loader"
   drop.belt_speed = normalize_belt_speed(belt_speed)
   drop.belt_direction = belt_direction
-end
-
----Sets all fields in `def.drop`.
----@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
----@param belt_direction defines.direction
-local function drop_to_underground(def, belt_speed, belt_direction)
-  local drop = get_drop_data(def)
-  drop.target_type = "belt"
-  drop.is_splitter = false
-  drop.belt_speed = normalize_belt_speed(belt_speed)
-  drop.belt_direction = belt_direction
-end
-
----Sets all fields in `def.drop`.
----@param def InserterThroughputDefinition
-local function drop_to_ground(def)
-  local drop = get_drop_data(def)
-  drop.target_type = "ground"
-  drop.is_splitter = nil
-  drop.belt_speed = nil
-  drop.belt_direction = nil
+  drop.loader_type = loader_type
+  drop.loader_belt_length = loader_belt_length
+  drop.loader_tile_distance_from_belt_start = loader_tile_distance_from_belt_start
 end
 
 -- drop to real world
@@ -625,18 +731,21 @@ end
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
 ---@param entity LuaEntity?
-local function drop_to_entity(def, entity)
+---@param drop_position VectorXY? @ Required if `entity` is any loader.
+local function drop_to_entity(def, entity, drop_position)
+  clear_table(def.drop)
   local drop = get_drop_data(def)
-  local to_type = get_interactive_type(entity)
-  drop.target_type = to_type
-  if to_type == "belt" then ---@cast entity -nil
-    drop.is_splitter = get_real_or_ghost_entity_type(entity) == "splitter"
+  local target_type = get_target_type(entity)
+  drop.target_type = target_type
+  if is_belt_connectable_target_type(target_type) then ---@cast entity -nil
     drop.belt_speed = get_real_or_ghost_entity_prototype(entity).belt_speed
+  end
+  if target_type == "splitter" then ---@cast entity -nil
     drop.belt_direction = entity.direction
-  else
-    drop.is_splitter = nil
-    drop.belt_speed = nil
-    drop.belt_direction = nil
+  elseif target_type == "loader" then ---@cast entity -nil
+    drop.belt_direction = entity.direction
+    if not drop_position then error("'drop_position' is required to set drop data for loaders.") end
+    loaders_are_hard(drop, entity, drop_position)
   end
 end
 
@@ -646,7 +755,7 @@ end
 ---@param position VectorXY @ A MapPosition on the given surface.
 ---@param inserter LuaEntity? @ Used to prevent an inserter from dropping to itself, provide it if applicable.
 local function drop_to_position(def, surface, position, inserter)
-  drop_to_entity(def, find_drop_target(surface, position, inserter))
+  drop_to_entity(def, find_drop_target(surface, position, inserter), position)
 end
 
 ---Sets all fields in `def.drop`.\
@@ -670,7 +779,7 @@ end
 local function drop_to_drop_target_of_inserter(def, inserter)
   local drop_target = inserter.drop_target
   if drop_target then
-    drop_to_entity(def, drop_target)
+    drop_to_entity(def, drop_target, inserter.drop_position)
   else
     drop_to_position(def, inserter.surface, inserter.drop_position)
   end
@@ -763,6 +872,8 @@ local function make_full_definition_for_inserter(inserter, def_to_reuse)
   return def
 end
 
+-- calculations and estimations
+
 local extension_distance_offset ---@type number
 local rotation_osset_from_tile_center ---@type number
 local belt_speed_multiplier ---@type number
@@ -833,8 +944,7 @@ end
 local function is_drop_to_input_of_splitter(inserter, drop, to_vector)
   local inserter_position_in_tile = inserter.inserter_position_in_tile
   if not inserter_position_in_tile or not drop.belt_direction then
-    assert(drop.is_splitter, "How did is_drop_to_input_of_splitter get called with falsy 'to_is_splitter'?")
-    error("When 'to_is_splitter' is true, 'inserter_position_in_tile' and 'to_belt_direction' must both be set.")
+    error("When 'drop.target_type == \"splitter\"', 'inserter.inserter_position_in_tile' and 'drop.belt_direction' must both be set.")
   end
   inserter_position_in_tile = vec.snap_to_map(vec.copy(inserter_position_in_tile))
   local position_in_drop_tile = vec.mod_scalar(vec.add(inserter_position_in_tile, to_vector), 1)
@@ -857,7 +967,7 @@ local function calculate_extra_drop_ticks(inserter, drop, to_vector)
   end
   -- Is belt.
   local stack_size = inserter.stack_size
-  local distance_on_input = drop.is_splitter and is_drop_to_input_of_splitter(inserter, drop, to_vector)
+  local distance_on_input = drop.target_type == "splitter" and is_drop_to_input_of_splitter(inserter, drop, to_vector)
   if stack_size == 1 then return 0, not not distance_on_input end
   if stack_size == 2 then return 1, not not distance_on_input end
 
@@ -973,11 +1083,11 @@ end
 ---@param drops_to_input_of_splitter boolean?
 ---@return number items_per_second
 local function cap_to_belt_speed(items_per_second, pickup, drop, drops_to_input_of_splitter)
-  if drop.target_type == "belt" then
+  if is_belt_connectable_target_type(drop.target_type) then
     local max_per_second = 60 / (0.25 / drop.belt_speed) * (drops_to_input_of_splitter and 2 or 1)
     items_per_second = math_min(max_per_second, items_per_second)
   end
-  if pickup.target_type == "belt" then
+  if is_belt_connectable_target_type(pickup.target_type) then
     items_per_second = math_min(60 / (0.125 / pickup.belt_speed), items_per_second)
   end
   return items_per_second
@@ -993,7 +1103,7 @@ local function estimate_inserter_speed(def)
   local drop_vector = vec.snap_to_map(vec.copy(inserter.drop_vector))
   local pickup_length = vec.get_length(pickup_vector)
   local drop_length = vec.get_length(drop_vector)
-  local pickup_is_belt = pickup.target_type == "belt"
+  local pickup_is_belt = is_belt_connectable_target_type(pickup.target_type)
   local does_chase = inserter.chases_belt_items and pickup_is_belt
   local extension_ticks = calculate_extension_ticks(
     inserter.extension_speed,
@@ -1024,12 +1134,13 @@ end
 ---@param def InserterThroughputDefinition
 ---@return boolean
 local function is_estimate(def)
-  -- TODO: when addressing the TODOs for splitters in calculate_extra_drop_ticks, remove drop.is_splitter from here.
-  return def.pickup.target_type == "belt" or not not def.drop.is_splitter
+  -- TODO: when addressing the TODOs for splitters in calculate_extra_drop_ticks, remove `drop.target_type == "splitter"` from here.
+  return is_belt_connectable_target_type(def.pickup.target_type) or def.drop.target_type == "splitter"
 end
 
 return {
-  get_target_type = get_interactive_type,
+  get_target_type = get_target_type,
+  is_belt_connectable_target_type = is_belt_connectable_target_type,
   get_pickup_vector = get_pickup_vector,
   get_drop_vector = get_drop_vector,
   get_default_inserter_position_in_tile = get_default_inserter_position_in_tile,
@@ -1038,22 +1149,24 @@ return {
   snap_build_position = snap_build_position,
   normalize_belt_speed = normalize_belt_speed,
   pickup_from_inventory = pickup_from_inventory,
-  pickup_from_belt = pickup_from_belt,
-  pickup_From_splitter = pickup_From_splitter,
-  pickup_From_loader = pickup_From_loader,
-  pickup_from_underground = pickup_from_underground,
   pickup_from_ground = pickup_from_ground,
+  pickup_from_belt = pickup_from_belt,
+  pickup_from_linked_belt = pickup_from_linked_belt,
+  pickup_from_underground = pickup_from_underground,
+  pickup_from_splitter = pickup_from_splitter,
+  pickup_from_loader = pickup_from_loader,
   pickup_from_entity = pickup_from_entity,
   pickup_from_position = pickup_from_position,
   pickup_from_position_and_set_pickup_vector = pickup_from_position_and_set_pickup_vector,
   pickup_from_pickup_target_of_inserter = pickup_from_pickup_target_of_inserter,
   pickup_from_pickup_target_of_inserter_and_set_pickup_vector = pickup_from_pickup_target_of_inserter_and_set_pickup_vector,
   drop_to_inventory = drop_to_inventory,
+  drop_to_ground = drop_to_ground,
   drop_to_belt = drop_to_belt,
+  drop_to_linked_belt = drop_to_linked_belt,
+  drop_to_underground = drop_to_underground,
   drop_to_splitter = drop_to_splitter,
   drop_to_loader = drop_to_loader,
-  drop_to_underground = drop_to_underground,
-  drop_to_ground = drop_to_ground,
   drop_to_entity = drop_to_entity,
   drop_to_position = drop_to_position,
   drop_to_position_and_set_drop_vector = drop_to_position_and_set_drop_vector,

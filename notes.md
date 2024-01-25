@@ -26,7 +26,7 @@
   - [ ] loaders
   - [ ] splitters
 - [ ] when dropping to loaders it's probably possible for them to get removed from the transport line faster than they would move 0.25 tiles, in other words dropping to loaders can probably be faster than dropping to belts. This is currently not considered anywhere in the logic.
-- [ ] add necessary data for dropping to undergrounds and loaders, namely direction, input/output type and position relative to inserter
+- [x] add necessary data for dropping to linked belts, undergrounds and loaders, namely direction, input/output type and position relative to inserter
 - [x] support ghost inserter
 - [x] support ghost targets
 - [x] when picking up tons of items from a belt, extra pickup ticks must not be faster than the belt is moving
@@ -42,6 +42,10 @@
 - [ ] when setting stack size using an inserter and it ends up being 1, calculate the actual stack size using technologies and overrides, because newly placed inserters don't update their stack size yet
 - [ ] normalize belt speeds in the estimate function, not in the setter functions
 - [ ] make sure to note that every function that "sets all fields in def.foo" also overwrites all unrelated fields to nil.
+- [ ] function to calculate stack size given an inserter prototype
+  - [ ] variant which also takes a force
+  - [ ] variant which also takes a control behavior
+  - [ ] variant which jus takes an inserter entity and figures it out
 
 NOTE: It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof.
 
