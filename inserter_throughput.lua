@@ -469,7 +469,7 @@ end
 
 -- pickup from prototype
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 local function pickup_from_inventory(def)
   clear_table(def.pickup)
@@ -477,7 +477,7 @@ local function pickup_from_inventory(def)
   pickup.target_type = "inventory"
 end
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 local function pickup_from_ground(def)
   clear_table(def.pickup)
@@ -485,7 +485,7 @@ local function pickup_from_ground(def)
   pickup.target_type = "ground"
 end
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
@@ -499,7 +499,7 @@ local function pickup_from_belt(def, belt_speed, belt_direction, belt_shape)
   pickup.belt_shape = belt_shape
 end
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
@@ -512,7 +512,7 @@ local function pickup_from_linked_belt(def, belt_speed, belt_direction, linked_b
   pickup.belt_direction = belt_direction
 end
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
@@ -526,7 +526,7 @@ local function pickup_from_underground(def, belt_speed, belt_direction, undergro
   pickup.underground_type = underground_type
 end
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
@@ -538,7 +538,7 @@ local function pickup_from_splitter(def, belt_speed, belt_direction)
   pickup.belt_direction = belt_direction
 end
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
@@ -568,7 +568,7 @@ end
 
 -- pickup from real world
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param entity LuaEntity?
 ---@param pickup_position VectorXY? @ Required if `entity` is any loader.
@@ -593,7 +593,7 @@ local function pickup_from_entity(def, entity, pickup_position)
   end
 end
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param surface LuaSurface
 ---@param position VectorXY @ A MapPosition on the given surface.
@@ -602,7 +602,7 @@ local function pickup_from_position(def, surface, position, inserter)
   pickup_from_entity(def, find_pickup_target(surface, position, inserter), position)
 end
 
----Sets all fields in `def.pickup`.\
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.\
 ---Also sets `def.inserter.pickup_vector` using `position` and `inserter_position`.
 ---@param def InserterThroughputDefinition
 ---@param surface LuaSurface
@@ -617,7 +617,7 @@ local function pickup_from_position_and_set_pickup_vector(def, surface, position
   inserter_data.pickup_vector = vec.sub(vec.copy(position), inserter_position)
 end
 
----Sets all fields in `def.pickup`.
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity @ Ghost or real.
 local function pickup_from_pickup_target_of_inserter(def, inserter)
@@ -629,7 +629,7 @@ local function pickup_from_pickup_target_of_inserter(def, inserter)
   end
 end
 
----Sets all fields in `def.pickup`.\
+---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.\
 ---Also sets `def.inserter.pickup_vector` using `inserter.pickup_position` and `inserter.position`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity @ Ghost or real.
@@ -641,7 +641,7 @@ end
 
 -- drop to prototype
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 local function drop_to_inventory(def)
   clear_table(def.drop)
@@ -649,7 +649,7 @@ local function drop_to_inventory(def)
   drop.target_type = "inventory"
 end
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 local function drop_to_ground(def)
   clear_table(def.drop)
@@ -657,7 +657,7 @@ local function drop_to_ground(def)
   drop.target_type = "ground"
 end
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 local function drop_to_belt(def, belt_speed)
@@ -667,7 +667,7 @@ local function drop_to_belt(def, belt_speed)
   drop.belt_speed = belt_speed
 end
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 local function drop_to_linked_belt(def, belt_speed)
@@ -677,7 +677,7 @@ local function drop_to_linked_belt(def, belt_speed)
   drop.belt_speed = belt_speed
 end
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 local function drop_to_underground(def, belt_speed)
@@ -686,7 +686,7 @@ local function drop_to_underground(def, belt_speed)
   drop.belt_speed = belt_speed
 end
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
@@ -698,7 +698,7 @@ local function drop_to_splitter(def, belt_speed, belt_direction)
   drop.belt_direction = belt_direction
 end
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
@@ -728,7 +728,7 @@ end
 
 -- drop to real world
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param entity LuaEntity?
 ---@param drop_position VectorXY? @ Required if `entity` is any loader.
@@ -749,7 +749,7 @@ local function drop_to_entity(def, entity, drop_position)
   end
 end
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param surface LuaSurface
 ---@param position VectorXY @ A MapPosition on the given surface.
@@ -758,7 +758,7 @@ local function drop_to_position(def, surface, position, inserter)
   drop_to_entity(def, find_drop_target(surface, position, inserter), position)
 end
 
----Sets all fields in `def.drop`.\
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.\
 ---Also sets `def.inserter.drop_vector` using `position` and `inserter_position`.
 ---@param def InserterThroughputDefinition
 ---@param surface LuaSurface
@@ -773,7 +773,7 @@ local function drop_to_position_and_set_drop_vector(def, surface, position, inse
   inserter_data.drop_vector = vec.sub(vec.copy(position), inserter_position)
 end
 
----Sets all fields in `def.drop`.
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity @ Ghost or real.
 local function drop_to_drop_target_of_inserter(def, inserter)
@@ -785,7 +785,7 @@ local function drop_to_drop_target_of_inserter(def, inserter)
   end
 end
 
----Sets all fields in `def.drop`.\
+---Sets all fields in `def.drop`, unrelated fields get set to `nil`.\
 ---Also sets `def.inserter.drop_vector` using `inserter.drop_position` and `inserter.position`.
 ---@param def InserterThroughputDefinition
 ---@param inserter LuaEntity @ Ghost or real.
