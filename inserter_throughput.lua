@@ -374,6 +374,61 @@ local function get_default_inserter_position_in_tile(prototype, direction)
   }
 end
 
+---@param fallback_stack_size integer
+---@param control_signal_id SignalID?
+---@param red LuaCircuitNetwork?
+---@param green LuaCircuitNetwork?
+local function get_stack_size_from_circuit_networks(fallback_stack_size, control_signal_id, red, green)
+  if not control_signal_id then return fallback_stack_size end
+  if not red and not green then return fallback_stack_size end
+  local signal_value = (green and green.get_signal(control_signal_id) or 0)
+    + (red and red.get_signal(control_signal_id) or 0)
+  if signal_value == 0 then return 1 end
+  return math_min(fallback_stack_size, signal_value)
+end
+
+---@param prototype LuaEntityPrototype
+---@param force LuaForce?
+---@param manual_override integer?
+---@param control_signal_id SignalID?
+---@param red LuaCircuitNetwork?
+---@param green LuaCircuitNetwork?
+---@return integer stack_size
+local function get_stack_size_for_prototype(prototype, force, manual_override, control_signal_id, red, green)
+  local stack_size = 1 + prototype.inserter_stack_size_bonus
+  if force then
+    local bonus = prototype.stack and force.stack_inserter_capacity_bonus or force.inserter_stack_size_bonus
+    stack_size = stack_size + bonus
+  end
+  if manual_override ~= 0 then
+    stack_size = math_min(stack_size, manual_override)
+  end
+  return get_stack_size_from_circuit_networks(stack_size, control_signal_id, red, green)
+end
+
+---Uses `inserter.inserter_target_pickup_count`. However `get_stack_size` also handles inserters which have
+---just been built in this tick, while `inserter_target_pickup_count` returns `1` in that case in several
+---situations.
+---@param inserter LuaEntity @ Ghost or real.
+local function get_stack_size(inserter)
+  local stack_size = inserter.inserter_target_pickup_count
+  if stack_size ~= 1 then return stack_size end
+  -- If it is 1 then the inserter may have been created in this tick in which case the above variable has not
+  -- updated yet. To handle this case, evaluate the stack size manually.
+  local cb = inserter.get_control_behavior()--[[@as LuaInserterControlBehavior]]
+  local signal_id = cb and cb.circuit_set_stack_size and cb.circuit_stack_control_signal or nil
+  return get_stack_size_for_prototype(
+    get_real_or_ghost_entity_prototype(inserter),
+    inserter.force--[[@as LuaForce]],
+    inserter.inserter_stack_size_override,
+    signal_id,
+    -- An inserter can have a cb with both red and green being nil. 1 example I know is a ghost inserter with
+    -- a ghost wire connection. `get_or_create_control_behavior()` may also result in both being nil.
+    signal_id and cb.get_circuit_network(defines.wire_type.red),
+    signal_id and cb.get_circuit_network(defines.wire_type.green)
+  )
+end
+
 ---@generic T : VectorXY
 ---@param position T
 ---@return T position_within_tile @ A new table.
@@ -806,7 +861,6 @@ end
 local function inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, direction, position, stack_size)
   inserter_data.rotation_speed = inserter_prototype.inserter_rotation_speed
   inserter_data.extension_speed = inserter_prototype.inserter_extension_speed
-  -- inserter_data.stack_size = inserter_prototype.inserter_stack_size_bonus + 1 -- TODO: which force to use?
   inserter_data.stack_size = stack_size
   inserter_data.chases_belt_items = inserter_prototype.inserter_chases_belt_items
   position = position -- `snap_build_position` checks if it is placeable off grid.
@@ -839,8 +893,7 @@ local function inserter_data_based_on_entity(def, inserter)
     get_real_or_ghost_entity_prototype(inserter),
     inserter.direction,
     position,
-    -- TODO: I remember checking this on ghosts, but it probably also takes 1 tick to update after being placed
-    inserter.inserter_target_pickup_count
+    get_stack_size(inserter)
   )
   inserter_data.pickup_vector = get_pickup_vector(inserter, position)
   inserter_data.drop_vector = get_drop_vector(inserter, position)
@@ -1185,6 +1238,8 @@ return {
   get_drop_vector = get_drop_vector,
   get_default_inserter_position_in_tile = get_default_inserter_position_in_tile,
   get_position_in_tile = get_position_in_tile,
+  get_stack_size_for_prototype = get_stack_size_for_prototype,
+  get_stack_size = get_stack_size,
   is_placeable_off_grid = is_placeable_off_grid,
   snap_build_position = snap_build_position,
   normalize_belt_speed = normalize_belt_speed,

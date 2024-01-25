@@ -22,9 +22,10 @@
 - [x] make sure the inserter throughput measuring is actually accurate
 - [ ] measurement is accurate, yes, however when picking up from belts timing plays a huge role. Measurement pauses help with it but it's still not great. It would be better if each segment between pauses was measured truly separately and then ones with nearly identical averages get discarded. After that it can take the average of all the "unique" ones, making reducing the chance of uneven weights for some timings
 - [ ] add math for picking up from
+  - [ ] linked belts
   - [ ] undergrounds
-  - [ ] loaders
   - [ ] splitters
+  - [ ] loaders
 - [ ] when dropping to loaders it's probably possible for them to get removed from the transport line faster than they would move 0.25 tiles, in other words dropping to loaders can probably be faster than dropping to belts. This is currently not considered anywhere in the logic.
 - [x] add necessary data for dropping to linked belts, undergrounds and loaders, namely direction, input/output type and position relative to inserter
 - [x] support ghost inserter
@@ -39,15 +40,13 @@
 - [x] add functions to create definitions from prototypes
 - [x] add functions to create the inserter part of definitions
 - [ ] set version to 1.1.0
-- [ ] when setting stack size using an inserter and it ends up being 1, calculate the actual stack size using technologies and overrides, because newly placed inserters don't update their stack size yet
+- [x] when setting stack size using an inserter and it ends up being 1, calculate the actual stack size using technologies and overrides, because newly placed inserters don't update their stack size yet
 - [x] normalize belt speeds in the estimate function, not in the setter functions
 - [x] make sure to note that every function that "sets all fields in def.foo" also overwrites all unrelated fields to nil.
-- [ ] function to calculate stack size given an inserter prototype
-  - [ ] variant which also takes a force
-  - [ ] variant which also takes a control behavior
-  - [ ] variant which jus takes an inserter entity and figures it out
+- [x] function to calculate stack size given an inserter prototype, force, manual override, control signal id, red and green circuit network
+  - [x] variant which just takes an inserter entity and figures it out
 
-NOTE: It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof.
+It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof. This is handled through the library function `get_stack_size`.
 
 # What affects belt item seeking
 
