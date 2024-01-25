@@ -40,7 +40,7 @@
 - [x] add functions to create the inserter part of definitions
 - [ ] set version to 1.1.0
 - [ ] when setting stack size using an inserter and it ends up being 1, calculate the actual stack size using technologies and overrides, because newly placed inserters don't update their stack size yet
-- [ ] normalize belt speeds in the estimate function, not in the setter functions
+- [x] normalize belt speeds in the estimate function, not in the setter functions
 - [ ] make sure to note that every function that "sets all fields in def.foo" also overwrites all unrelated fields to nil.
 - [ ] function to calculate stack size given an inserter prototype
   - [ ] variant which also takes a force

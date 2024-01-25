@@ -487,60 +487,60 @@ end
 
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
 ---@param belt_shape "left"|"right"|"straight" @ Example: If a belt is pointing at this belt from the left, set "left".
 local function pickup_from_belt(def, belt_speed, belt_direction, belt_shape)
   clear_table(def.pickup)
   local pickup = get_pickup_data(def)
   pickup.target_type = "belt"
-  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_speed = belt_speed
   pickup.belt_direction = belt_direction
   pickup.belt_shape = belt_shape
 end
 
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
 ---@param linked_belt_type "input"|"output" @ `LuaEntity::linked_belt_type`. `"input"`: items go into the belt, `"output"`: items come out of the belt.
 local function pickup_from_linked_belt(def, belt_speed, belt_direction, linked_belt_type)
   clear_table(def.pickup)
   local pickup = get_pickup_data(def)
   pickup.target_type = "linked-belt"
-  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_speed = belt_speed
   pickup.belt_direction = belt_direction
 end
 
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
 ---@param underground_type "input"|"output" @ `LuaEntity::belt_to_ground_type`. `"input"`: goes underground, `"output"`: emerges from the ground.
 local function pickup_from_underground(def, belt_speed, belt_direction, underground_type)
   clear_table(def.pickup)
   local pickup = get_pickup_data(def)
   pickup.target_type = "underground"
-  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_speed = belt_speed
   pickup.belt_direction = belt_direction
   pickup.underground_type = underground_type
 end
 
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
 local function pickup_from_splitter(def, belt_speed, belt_direction)
   clear_table(def.pickup)
   local pickup = get_pickup_data(def)
   pickup.target_type = "splitter"
-  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_speed = belt_speed
   pickup.belt_direction = belt_direction
 end
 
 ---Sets all fields in `def.pickup`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
 ---@param loader_type "input"|"output" @ `LuaEntity::loader_type`. `"input"`: items flow into the loader, `"output"`: items flow out of the loader.
 ---@param loader_belt_length number @ `LuaEntityPrototype::belt_length`.
@@ -559,7 +559,7 @@ local function pickup_from_loader(
   clear_table(def.pickup)
   local pickup = get_pickup_data(def)
   pickup.target_type = "loader"
-  pickup.belt_speed = normalize_belt_speed(belt_speed)
+  pickup.belt_speed = belt_speed
   pickup.belt_direction = belt_direction
   pickup.loader_type = loader_type
   pickup.loader_belt_length = loader_belt_length
@@ -659,48 +659,48 @@ end
 
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 local function drop_to_belt(def, belt_speed)
   clear_table(def.drop)
   local drop = get_drop_data(def)
   drop.target_type = "belt"
-  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_speed = belt_speed
 end
 
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 local function drop_to_linked_belt(def, belt_speed)
   clear_table(def.drop)
   local drop = get_drop_data(def)
   drop.target_type = "linked-belt"
-  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_speed = belt_speed
 end
 
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 local function drop_to_underground(def, belt_speed)
   local drop = get_drop_data(def)
   drop.target_type = "underground"
-  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_speed = belt_speed
 end
 
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
 local function drop_to_splitter(def, belt_speed, belt_direction)
   clear_table(def.drop)
   local drop = get_drop_data(def)
   drop.target_type = "splitter"
-  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_speed = belt_speed
   drop.belt_direction = belt_direction
 end
 
 ---Sets all fields in `def.drop`.
 ---@param def InserterThroughputDefinition
----@param belt_speed number @ Tiles per tick that each item moves. Gets run through `normalize_belt_speed`.
+---@param belt_speed number @ Tiles per tick that each item moves.
 ---@param belt_direction defines.direction
 ---@param loader_type "input"|"output" @ `LuaEntity::loader_type`. `"input"`: items flow into the loader, `"output"`: items flow out of the loader.
 ---@param loader_belt_length number @ `LuaEntityPrototype::belt_length`.
@@ -719,7 +719,7 @@ local function drop_to_loader(
   clear_table(def.drop)
   local drop = get_drop_data(def)
   drop.target_type = "loader"
-  drop.belt_speed = normalize_belt_speed(belt_speed)
+  drop.belt_speed = belt_speed
   drop.belt_direction = belt_direction
   drop.loader_type = loader_type
   drop.loader_belt_length = loader_belt_length
@@ -955,10 +955,11 @@ end
 
 ---@param inserter InserterThroughputInserterDefinition
 ---@param drop InserterThroughputDropDefinition
+---@param drop_belt_speed number
 ---@param to_vector VectorXY
 ---@return integer ticks
 ---@return boolean? drops_to_input_of_splitter
-local function calculate_extra_drop_ticks(inserter, drop, to_vector)
+local function calculate_extra_drop_ticks(inserter, drop, drop_belt_speed, to_vector)
   if drop.target_type == "inventory" then
     return 0
   end
@@ -971,14 +972,14 @@ local function calculate_extra_drop_ticks(inserter, drop, to_vector)
   if stack_size == 1 then return 0, not not distance_on_input end
   if stack_size == 2 then return 1, not not distance_on_input end
 
-  local ticks_per_item = 0.25 / drop.belt_speed
+  local ticks_per_item = 0.25 / drop_belt_speed
   if distance_on_input then
     -- TODO: Return max possible drop speed instead of just a bool.
     -- TODO: Actually test how accurate this is with inserters not dropping exactly in the middle of splitters.
     -- It probably is very wrong, like I think stack_size -3 and -4 would need to change to -2 and use ticks_until_split somehow.
     -- TODO: This is currently only accurate for itl-express-transport-belt and faster. For the slower ones the estimate is too slow by ~0.3.
 
-    local ticks_until_split = math_max(distance_on_input / drop.belt_speed)
+    local ticks_until_split = math_max(distance_on_input / drop_belt_speed)
     if ticks_until_split < ticks_per_item then
       local ticks_between_left_and_right = ticks_until_split + 1
       ticks_per_item = ticks_until_split + ticks_per_item / 2
@@ -1021,25 +1022,26 @@ local item_flow_vector_lut = {
 ---them, and the cap at the very end won't catch that because the inserter is also spending a lot of time
 ---dropping items to the slow belt. It is this logic that has to catch it.
 ---@param inserter InserterThroughputInserterDefinition
----@param pickup InserterThroughputPickupDefinition
+---@param pickup_belt_speed number
 ---@param extra_pickup_ticks number
 ---@return number extra_pickup_ticks
-local function cap_extra_pickup_ticks_to_belt_speed(inserter, pickup, extra_pickup_ticks)
+local function cap_extra_pickup_ticks_to_belt_speed(inserter, pickup_belt_speed, extra_pickup_ticks)
   -- Magic 8. It's simply the amount of items that are already on the belt, before more items have to move in.
   -- If the inserter is so fast that there wouldn't actually be 8 items on the belt yet, there's the final
   -- cap that will handle that case.
   local item_count = inserter.stack_size - 8
   if item_count < 0 then return extra_pickup_ticks end -- Not required, just short circuit.
-  local ticks_per_item = (0.25 / pickup.belt_speed) / 2
+  local ticks_per_item = (0.25 / pickup_belt_speed) / 2
   return math_max(math_ceil(item_count * ticks_per_item), extra_pickup_ticks)
 end
 
 ---@param inserter InserterThroughputInserterDefinition
 ---@param pickup InserterThroughputPickupDefinition
+---@param pickup_belt_speed number
 ---@param pickup_vector VectorXY
 ---@param pickup_length number @ Length of the `pickup_vector`.
 ---@return number ticks
-local function estimate_extra_pickup_ticks(inserter, pickup, pickup_vector, pickup_length)
+local function estimate_extra_pickup_ticks(inserter, pickup, pickup_belt_speed, pickup_vector, pickup_length)
   if pickup.target_type == "inventory" then
     return 0
   end
@@ -1061,7 +1063,7 @@ local function estimate_extra_pickup_ticks(inserter, pickup, pickup_vector, pick
   local rotation_influence = 1 - extension_influence
   local influence_bleed = vec.get_orientation{x = 0.25, y = -pickup_length} * 4
 
-  local distance_due_to_belt_movement = pickup.belt_speed * belt_speed_multiplier
+  local distance_due_to_belt_movement = pickup_belt_speed * belt_speed_multiplier
 
   local hand_speed = extension_influence * inserter.extension_speed
     + extension_influence * influence_bleed * inserter.rotation_speed
@@ -1072,33 +1074,48 @@ local function estimate_extra_pickup_ticks(inserter, pickup, pickup_vector, pick
   local ticks_per_item = 0.25 / hand_speed -- 0.25 == distance per item
   return cap_extra_pickup_ticks_to_belt_speed(
     inserter,
-    pickup,
+    pickup_belt_speed,
     math_max(inserter.stack_size, ticks_per_item * inserter.stack_size)
   )
 end
 
 ---@param items_per_second number
 ---@param pickup InserterThroughputPickupDefinition
+---@param pickup_belt_speed number
 ---@param drop InserterThroughputDropDefinition
+---@param drop_belt_speed number
 ---@param drops_to_input_of_splitter boolean?
 ---@return number items_per_second
-local function cap_to_belt_speed(items_per_second, pickup, drop, drops_to_input_of_splitter)
+local function cap_to_belt_speed(
+  items_per_second,
+  pickup,
+  pickup_belt_speed,
+  drop,
+  drop_belt_speed,
+  drops_to_input_of_splitter
+)
   if is_belt_connectable_target_type(drop.target_type) then
-    local max_per_second = 60 / (0.25 / drop.belt_speed) * (drops_to_input_of_splitter and 2 or 1)
+    local max_per_second = 60 / (0.25 / drop_belt_speed) * (drops_to_input_of_splitter and 2 or 1)
     items_per_second = math_min(max_per_second, items_per_second)
   end
   if is_belt_connectable_target_type(pickup.target_type) then
-    items_per_second = math_min(60 / (0.125 / pickup.belt_speed), items_per_second)
+    items_per_second = math_min(60 / (0.125 / pickup_belt_speed), items_per_second)
   end
   return items_per_second
 end
 
+---Snaps belt speeds and vectors to valid 1/256ths, because they are all related to MapPositions. Does not
+---modify the given definition however.
 ---@param def InserterThroughputDefinition
 ---@return number items_per_second
 local function estimate_inserter_speed(def)
   local inserter = def.inserter
   local pickup = def.pickup
   local drop = def.drop
+  local pickup_belt_speed = pickup.belt_speed
+  pickup_belt_speed = pickup_belt_speed and normalize_belt_speed(pickup_belt_speed) ---@cast pickup_belt_speed -nil
+  local drop_belt_speed = drop.belt_speed
+  drop_belt_speed = drop_belt_speed and normalize_belt_speed(drop_belt_speed) ---@cast drop_belt_speed -nil
   local pickup_vector = vec.snap_to_map(vec.copy(inserter.pickup_vector))
   local drop_vector = vec.snap_to_map(vec.copy(inserter.drop_vector))
   local pickup_length = vec.get_length(pickup_vector)
@@ -1112,8 +1129,19 @@ local function estimate_inserter_speed(def)
     does_chase,
     pickup_is_belt
   )
-  local extra_drop_ticks, drops_to_input_of_splitter = calculate_extra_drop_ticks(inserter, drop, drop_vector)
-  local extra_pickup_ticks = estimate_extra_pickup_ticks(inserter, pickup, pickup_vector, pickup_length)
+  local extra_drop_ticks, drops_to_input_of_splitter = calculate_extra_drop_ticks(
+    inserter,
+    drop,
+    drop_belt_speed,
+    drop_vector
+  )
+  local extra_pickup_ticks = estimate_extra_pickup_ticks(
+    inserter,
+    pickup,
+    pickup_belt_speed,
+    pickup_vector,
+    pickup_length
+  )
   -- Normalize just before `calculate_rotation_ticks` because it is the only func that needs them normalized.
   vec.normalize(pickup_vector, pickup_length)
   vec.normalize(drop_vector, drop_length)
@@ -1127,7 +1155,14 @@ local function estimate_inserter_speed(def)
   )
   local ticks_per_swing = math_max(extension_ticks, rotation_ticks, 1)
   local total_ticks = (ticks_per_swing * 2) + extra_drop_ticks + extra_pickup_ticks
-  return cap_to_belt_speed(60 / total_ticks * inserter.stack_size, pickup, drop, drops_to_input_of_splitter)
+  return cap_to_belt_speed(
+    60 / total_ticks * inserter.stack_size,
+    pickup,
+    pickup_belt_speed,
+    drop,
+    drop_belt_speed,
+    drops_to_input_of_splitter
+  )
 end
 
 ---Whether or not the given definition can be used accurate throughput calculation or if it is just an estimate.
