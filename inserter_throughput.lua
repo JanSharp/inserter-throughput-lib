@@ -1170,7 +1170,12 @@ end
 ---@return boolean
 local function is_estimate(def)
   -- TODO: when addressing the TODOs for splitters in calculate_extra_drop_ticks, remove `drop.target_type == "splitter"` from here.
-  return is_belt_connectable_target_type(def.pickup.target_type) or def.drop.target_type == "splitter"
+  -- TODO: when implementing dropping to loaders, remove the check for them from here.
+  local drop = def.drop
+  local drop_type = drop.target_type
+  return is_belt_connectable_target_type(def.pickup.target_type)
+    or drop_type == "splitter"
+    or drop_type == "loader" and drop.loader_type == "input"
 end
 
 return {
