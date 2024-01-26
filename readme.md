@@ -176,6 +176,13 @@ end)
 - [`mul_scalar`](#mul_scalar)
 - [`div_scalar`](#div_scalar)
 - [`mod_scalar`](#mod_scalar)
+- [`pow_scalar`](#pow_scalar)
+- [`sqrt`](#sqrt)
+- [`abs`](#abs)
+- [`floor`](#floor)
+- [`ceil`](#ceil)
+- [`min`](#min)
+- [`max`](#max)
 - [`dot_product`](#dot_product)
 - [`get_radians`](#get_radians)
 - [`get_orientation`](#get_orientation)
@@ -1017,6 +1024,130 @@ I don't know if the game rounds or floors, but this function is flooring.
 **Return values**
 
 - `left` :: `T`
+
+### pow_scalar
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)
+
+**Parameters**
+
+- `left` :: `T`\
+  Gets modified.
+- `right` :: `number`
+
+**Return values**
+
+- `left` :: `T`
+
+### sqrt
+
+Simply calls `math.sqrt` on both `x` and `y`.
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)
+
+**Parameters**
+
+- `vector` :: `T`\
+  Gets modified.
+
+**Return values**
+
+- `vector` :: `T`
+
+### abs
+
+Simply calls `math.abs` on both `x` and `y`.
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)
+
+**Parameters**
+
+- `vector` :: `T`\
+  Gets modified.
+
+**Return values**
+
+- `vector` :: `T`
+
+### floor
+
+Simply calls `math.floor` on both `x` and `y`.
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)
+
+**Parameters**
+
+- `vector` :: `T`\
+  Gets modified.
+
+**Return values**
+
+- `vector` :: `T`
+
+### ceil
+
+Simply calls `math.ceil` on both `x` and `y`.
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)
+
+**Parameters**
+
+- `vector` :: `T`\
+  Gets modified.
+
+**Return values**
+
+- `vector` :: `T`
+
+### min
+
+Can take any amount of vectors, technically even 0 in which case it simply returns `nil`. The only limitation is that there must be no gaps in the arguments.
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)?
+
+**Parameters**
+
+- `vector` :: `T`\
+  Gets modified.
+- `other` :: [`VectorXY`](#vectorxy)?
+- `...` :: [`VectorXY`](#vectorxy)?
+
+**Return values**
+
+- `vector` :: `T`\
+  A vector with the lowest `x` and the lowest `y` out of all given vectors.
+
+### max
+
+Can take any amount of vectors, technically even 0 in which case it simply returns `nil`. The only limitation is that there must be no gaps in the arguments.
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)?
+
+**Parameters**
+
+- `vector` :: `T`\
+  Gets modified.
+- `other` :: [`VectorXY`](#vectorxy)?
+- `...` :: [`VectorXY`](#vectorxy)?
+
+**Return values**
+
+- `vector` :: `T`\
+  A vector with the highest `x` and the highest `y` out of all given vectors.
 
 ### dot_product
 

@@ -13,6 +13,9 @@ local math_sqrt = math.sqrt
 local math_atan2 = math.atan2
 local math_sin = math.sin
 local math_cos = math.cos
+local math_abs = math.abs
+local math_floor = math.floor
+local math_ceil = math.ceil
 
 ---@param left VectorXY
 ---@param right VectorXY
@@ -148,6 +151,100 @@ local function mod_scalar(left, right) ---@cast left VectorXY
   left.x = left.x % right
   left.y = left.y % right
   return left
+end
+
+---@generic T : VectorXY
+---@param left T @ Gets modified.
+---@param right number
+---@return T left
+local function pow_scalar(left, right) ---@cast left VectorXY
+  left.x = left.x ^ right
+  left.y = left.y ^ right
+  return left
+end
+
+---Simply calls `math.sqrt` on both `x` and `y`.
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
+---@return T vector
+local function sqrt(vector) ---@cast vector VectorXY
+  vector.x = math_sqrt(vector.x)
+  vector.y = math_sqrt(vector.y)
+  return vector
+end
+
+---Simply calls `math.abs` on both `x` and `y`.
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
+---@return T vector
+local function abs(vector) ---@cast vector VectorXY
+  vector.x = math_abs(vector.x)
+  vector.y = math_abs(vector.y)
+  return vector
+end
+
+---Simply calls `math.floor` on both `x` and `y`.
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
+---@return T vector
+local function floor(vector) ---@cast vector VectorXY
+  vector.x = math_floor(vector.x)
+  vector.y = math_floor(vector.y)
+  return vector
+end
+
+---Simply calls `math.ceil` on both `x` and `y`.
+---@generic T : VectorXY
+---@param vector T @ Gets modified.
+---@return T vector
+local function ceil(vector) ---@cast vector VectorXY
+  vector.x = math_ceil(vector.x)
+  vector.y = math_ceil(vector.y)
+  return vector
+end
+
+---Can take any amount of vectors, technically even 0 in which case it simply returns `nil`. The only
+---limitation is that there must be no gaps in the arguments.
+---@generic T : VectorXY?
+---@param vector T @ Gets modified.
+---@param other VectorXY?
+---@param ... VectorXY?
+---@return T vector @ A vector with the lowest `x` and the lowest `y` out of all given vectors.
+local function min(vector, other, ...) ---@cast vector VectorXY
+  if not other then return vector end
+  local other_x = other.x
+  if other_x < vector.x then
+    vector.x = other_x
+  end
+  local other_y = other.y
+  if other_y < vector.y then
+    vector.y = other_y
+  end
+  -- Optimized for the most common case where it is simply given 2 vectors. It does not create create any
+  -- temporary tables. Just tail calls until it hits `nil`.
+  return min(vector, ...)
+end
+
+---Can take any amount of vectors, technically even 0 in which case it simply returns `nil`. The only
+---limitation is that there must be no gaps in the arguments.
+---@generic T : VectorXY?
+---@param vector T @ Gets modified.
+---@param other VectorXY?
+---@param ... VectorXY?
+---@return T vector @ A vector with the highest `x` and the highest `y` out of all given vectors.
+local function max(vector, other, ...) ---@cast vector VectorXY
+  if not other then return vector end
+  local other_x = other.x
+  if other_x > vector.x then
+    vector.x = other_x
+  end
+  local other_y = other.y
+  if other_y > vector.y then
+    vector.y = other_y
+  end
+  -- Optimized for the most common case where it is simply given 2 vectors. It does not create create any
+  -- temporary tables. Just tail calls until it hits `nil`.
+  return max(vector, ...)
 end
 
 ---Project `right` onto `left`, get that length and multiply it by the length of `left`.\
@@ -333,6 +430,13 @@ local vector_lib = {
   mul_scalar = mul_scalar,
   div_scalar = div_scalar,
   mod_scalar = mod_scalar,
+  pow_scalar = pow_scalar,
+  sqrt = sqrt,
+  abs = abs,
+  floor = floor,
+  ceil = ceil,
+  min = min,
+  max = max,
   dot_product = dot_product,
   get_radians = get_radians,
   get_orientation = get_orientation,
