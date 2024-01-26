@@ -46,7 +46,7 @@
 - [x] function to calculate stack size given an inserter prototype, force, manual override, control signal id, red and green circuit network
   - [x] variant which just takes an inserter entity and figures it out
 - [x] add vec.floor and the likes
-- [ ] thumbnail
+- [x] thumbnail
 
 It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof. This is handled through the library function `get_stack_size`.
 
