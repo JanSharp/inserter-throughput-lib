@@ -1,0 +1,11 @@
+---------------------------------------------------------------------------------------------------
+Version: 1.1.0
+Date: ????
+  Features:
+    - Added api for utility, definition creation and estimation functions
+    - Added type annotations as a form of documentation
+    - Added readme.md as another form of documentation as well as an overview
+    - Added calculation for picking up from inventories and ground
+    - Added calculation for dropping to inventories, ground and belt connectables, except for loaders
+    - Added estimation for picking up from straight and curved belts
+    - Added capping throughput to belt speeds, with partial handling of dropping to splitters

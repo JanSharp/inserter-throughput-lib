@@ -30,19 +30,23 @@ local math_max = math.max
 
 ---@class InserterThroughputInserterDefinition
 ---@field extension_speed number @ Tiles per tick.
----@field rotation_speed number @ RealOrientation per tick.
+---[`RealOrientation`](https://lua-api.factorio.com/latest/concepts.html#RealOrientation) per tick.
+---@field rotation_speed number
 ---@field stack_size integer @ Must be at least 1.
 ---@field pickup_vector VectorXY @ Relative to inserter position.
 ---@field drop_vector VectorXY @ Relative to inserter position.
----@field chases_belt_items boolean @ https://lua-api.factorio.com/latest/prototypes/InserterPrototype.html#chases_belt_items
+---[`InserterPrototype::chases_belt_items`](https://lua-api.factorio.com/latest/prototypes/InserterPrototype.html#chases_belt_items).
+---@field chases_belt_items boolean
 ---Modulo (%) 1 of x and y of the inserter's position.\
 ---Only used and required if `drop.is_splitter` is true.
 ---@field inserter_position_in_tile VectorXY?
 
 ---@class InserterThroughputLoaderDefinitionBase
----`LuaEntity::loader_type`. `"input"`: items flow into the loader, `"output"`: items flow out of the loader.
+---[`LuaEntity::loader_type`](https://lua-api.factorio.com/latest/classes/LuaEntity.html#loader_type).
+---`"input"`: items flow into the loader, `"output"`: items flow out of the loader.
 ---@field loader_type "input"|"output"?
----@field loader_belt_length number? @ `LuaEntityPrototype::belt_length`.
+---[`LuaEntityPrototype::belt_length`](https://lua-api.factorio.com/latest/classes/LuaEntityPrototype.html#belt_length).
+---@field loader_belt_length number?
 ---How many tiles is the drop distance away from the actual belt of the loader? When dropping onto the tile of
 ---a 1x2 loader which is next to a container, this is `1`. When dropping onto the tile where items get put
 ---onto or taken from the belt, this is 0.
@@ -56,10 +60,14 @@ local math_max = math.max
 ---This is the direction items flow in. Always. Even for undergrounds and loaders, be it input or output.\
 ---Required for all belt connectables.
 ---@field belt_direction defines.direction?
----@field belt_shape "left"|"right"|"straight"? @ `LuaEntity::belt_shape`. Just used for `"belt"`s.
----`LuaEntity::linked_belt_type`. `"input"`: items go into the belt, `"output"`: items come out of the belt.
+---[`LuaEntity::belt_shape`](https://lua-api.factorio.com/latest/classes/LuaEntity.html#belt_shape).
+---Just used for `"belt"`s.
+---@field belt_shape "left"|"right"|"straight"?
+---[`LuaEntity::linked_belt_type`](https://lua-api.factorio.com/latest/classes/LuaEntity.html#linked_belt_type).
+---`"input"`: items go into the belt, `"output"`: items come out of the belt.
 ---@field linked_belt_type "input"|"output"?
----`LuaEntity::belt_to_ground_type`. `"input"`: goes underground, `"output"`: emerges from the ground.
+---[`LuaEntity::belt_to_ground_type`](https://lua-api.factorio.com/latest/classes/LuaEntity.html#belt_to_ground_type).
+---`"input"`: goes underground, `"output"`: emerges from the ground.
 ---@field underground_type "input"|"output"?
 
 ---@class InserterThroughputDropDefinition : InserterThroughputLoaderDefinitionBase
@@ -1218,7 +1226,8 @@ local function estimate_inserter_speed(def)
   )
 end
 
----Whether or not the given definition can be used accurate throughput calculation or if it is just an estimate.
+---Whether or not the given definition can be used for accurate throughput calculation or if it is just an
+---estimate. Under what conditions this returns true or false is not part of the public api.
 ---@param def InserterThroughputDefinition
 ---@return boolean
 local function is_estimate(def)
@@ -1231,7 +1240,10 @@ local function is_estimate(def)
     or drop_type == "loader" and drop.loader_type == "input"
 end
 
-return {
+---@class InserterThroughputLib
+local inserter_throughput_lib = {
+  get_real_or_ghost_entity_type = get_real_or_ghost_entity_type,
+  get_real_or_ghost_entity_prototype = get_real_or_ghost_entity_prototype,
   get_target_type = get_target_type,
   is_belt_connectable_target_type = is_belt_connectable_target_type,
   get_pickup_vector = get_pickup_vector,
@@ -1274,3 +1286,4 @@ return {
   estimate_inserter_speed = estimate_inserter_speed,
   is_estimate = is_estimate,
 }
+return inserter_throughput_lib

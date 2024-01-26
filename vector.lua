@@ -175,7 +175,7 @@ local function get_radians(vector)
   return math_atan2(vector.x, -vector.y) % rad360
 end
 
----Returns a RealOrientation, so [0, 1) where 0 is north, 0.25 is east, 0.5 is south, 0.75 is west.
+---Returns a RealOrientation, so `[0, 1)` where 0 is north, 0.25 is east, 0.5 is south, 0.75 is west.
 ---@param vector VectorXY
 ---@return RealOrientation
 local function get_orientation(vector)
@@ -253,6 +253,7 @@ local function transform_by_matrix(matrix, vector) ---@cast vector VectorXY
 end
 
 ---@param radians number
+---@return MatrixIJ matrix
 local function rotation_matrix_by_radians(radians)
   local ix, jx,
         iy, jy = get_rotation_matrix_values(radians)
@@ -263,6 +264,7 @@ local function rotation_matrix_by_radians(radians)
 end
 
 ---@param orientation RealOrientation @ Can exceed the usual bounds of RealOrientation.
+---@return MatrixIJ matrix
 local function rotation_matrix_by_orientation(orientation)
   return rotation_matrix_by_radians(orientation * rad360)
 end
@@ -315,7 +317,8 @@ local function compose_matrices(second, first)
   return first
 end
 
-return {
+---@class VectorLib
+local vector_lib = {
   vec_equals = vec_equals,
   matrix_equals = matrix_equals,
   copy = copy,
@@ -344,3 +347,4 @@ return {
   copy_matrix = copy_matrix,
   compose_matrices = compose_matrices,
 }
+return vector_lib

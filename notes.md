@@ -31,22 +31,41 @@
 - [x] support ghost inserter
 - [x] support ghost targets
 - [x] when picking up tons of items from a belt, extra pickup ticks must not be faster than the belt is moving
-- [ ] add readme
-- [ ] add changelog
+- [x] add readme
+- [x] add changelog
 - [x] think about improving the "set from inserter, entity or position" api
 - [x] rename api file to inserter_throughput
 - [x] rename "from" and "to" to "pickup" and "drop"
 - [x] change data structure to be a definition table containing 3 more tables, inserter, pickup, and drop
 - [x] add functions to create definitions from prototypes
 - [x] add functions to create the inserter part of definitions
-- [ ] set version to 1.1.0
+- [x] set version to 1.1.0
 - [x] when setting stack size using an inserter and it ends up being 1, calculate the actual stack size using technologies and overrides, because newly placed inserters don't update their stack size yet
 - [x] normalize belt speeds in the estimate function, not in the setter functions
 - [x] make sure to note that every function that "sets all fields in def.foo" also overwrites all unrelated fields to nil.
 - [x] function to calculate stack size given an inserter prototype, force, manual override, control signal id, red and green circuit network
   - [x] variant which just takes an inserter entity and figures it out
+- [ ] add vec.floor and the likes
+- [ ] thumbnail
 
 It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof. This is handled through the library function `get_stack_size`.
+
+Regex for readme (do all other transformations first, notably moving descriptions to the next line):
+```
+---@param (\w+) ([^\n\\?]+)
+- `$1` :: [`$2`]()
+
+---@return ([^\n? ]+)\?? (\w+)
+- `$2` :: [`$1`]()
+
+---@return ([^\n\\?]+)
+- [`$1`]()
+
+\[`(T|string|boolean|number|integer|table|["\d][^`]*)`\]\(\)
+`$1`
+
+\[`[^`]+`\]\(\)
+```
 
 # What affects belt item seeking
 
