@@ -9,9 +9,9 @@ This library aims to provide mod creators with reasonable throughput estimates f
 
 The throughput of inserters can actually be calculated very accurately in many setups. Especially when it comes to dropping items it can all be calculated, the only tricky situations being dropping to splitters. Dropping to loaders which take items from the belt is also awkward, but this is much less common at least.
 
-The major difficulty with calculation originates from belt item chasing. In other words, picking items up from any belt connectable. There are many variable which influence how long it takes an inserter to pick up an item from a belt, leaving just 2 options for calculation: Simulation or estimation.
+The major difficulty with calculation originates from belt item chasing. In other words, picking up items from any belt connectable. There are many variables which influence how long it takes an inserter to pick up an item from a belt, leaving just 2 options for calculation: Simulation or estimation.
 
-Simulation is out of the question. I could just leave it at that, but if you are curious there are at least 4 reasons: Reimplementing item chasing exactly the way it works in game would take a long time, and would be so implementation dependent that any micro change to the game would invalidate the simulation. So while possible, it'd be really bad for maintainability. The second reason is performance. Without going into detail, there are inserters out there with over 100 stack sizes, requiring long simulations. And the third reason is that inserters behave differently when picking up from belts depending on timing. It may require multiple simulations with different item timings on the belt to determine accurate enough throughput... but wait, at that point it's just an estimate. And inserters can get stuck chasing items, never picking any up, so it would need a timeout as well. There are just too many issues with simulation making it not feasible.
+Simulation is out of the question. I could just leave it at that, but if you are curious there are at least 4 reasons: Reimplementing item chasing exactly the way it works in game would take a long time, and would be so implementation dependent that any micro change to the game would invalidate the simulation. So while possible, it'd be really bad for maintainability. The second reason is performance. Without going into detail, there are inserters out there with over 100 stack sizes, requiring long simulations. The third reason is that inserters behave differently when picking up from belts depending on timing. It would require multiple simulations with different item timings on the belt to determine accurate enough throughput... but wait, at that point it's just an estimate. And lastly inserters can get stuck chasing items, never picking any up, so it would need a timeout as well. There are just too many issues with simulation making it not feasible.
 
 That leaves estimation. More specifically a bit of math trying to get close to real values. To get closer to real values the algorithm can be parametrized and then run through iterations with different values for those parameters, comparing estimated values with real measured values. The result is a few magic values with which the algorithm is tuned to be a little bit more accurate.
 
@@ -25,7 +25,7 @@ The vector api mainly contains vector functions, with a few 2x2 matrix functions
 
 ### Inserter Throughput API
 
-The estimation function takes a definition table which contains all necessary data for the estimation. This definition does not contain any references to entities or prototypes. Therefore the definition table gets created beforehand through definition creation functions (or manually, technically). Nearly all of these functions only set a part of the definition, referred to as setter functions.
+The estimation function takes a definition table which contains all necessary data for the estimation. This definition does not contain any references to entities or prototypes. Therefore the definition table gets created beforehand through definition creation functions (or manually, technically). Nearly all of these functions only set a part of the definition.
 
 Apart from that there are a few utility functions in relation to inserter pickup and drop targets, stack sizes and default positions. They are used internally, however they are also exposed in the api for more flexibility.
 
@@ -33,7 +33,7 @@ The definition table consists of 3 parts: inserter data, pickup data, drop data.
 
 The majority of the definition creation functions only set 1 of those 3 parts in the definition table. The only exceptions are 1 function which sets all 3, and a few which set pickup or drop data, and then also set the pickup or drop vector inside of the inserter data.
 
-The estimation function does not modify the definition allowing for reuse of the same definition table. The setter functions also accept a given part of the definition table being set already, they will simply clear out the old data and set new data.
+The estimation function does not modify the definition allowing for reuse of the same definition table. The definition creation functions also accept a given part of the definition table being set already, they will simply clear out the old data and set new data.
 
 ### Vector API
 
@@ -56,9 +56,9 @@ This mod contains two files which are public api:
 
 ## Documentation through Annotations
 
-This mod contains type annotations for the [LuaLS](https://github.com/LuaLS/lua-language-server). If you are using said language server I would recommend to **extract this mod** and put it in a place the language server can see, such as the workspace itself or in a library path of the language server. I **recommend against cloning the source** because it contains dev only test files which create several prototypes and modify the editor controller.
+Aside from the documentation in this file, the mod also contains type annotations for the [LuaLS](https://github.com/LuaLS/lua-language-server). If you are using said language server I would recommend to **extract this mod** and put it in a place the language server can see, such as the workspace itself or in a library path of the language server. I **recommend against cloning the source** because it contains dev only test files which create several prototypes and modify the editor controller.
 
-If you are not seeing type information on the return value of `require("__inserter-throughput-lib__.inserter_throughput")` you can try adding `---@type InserterThroughputLib` at the end of that line (or on a new line above). Same goes for the `vector` file, use `---@type VectorLib` for that.
+If you are not seeing type information on the return value of `require("__inserter-throughput-lib__.inserter_throughput")` you can try adding `---@type InserterThroughputLib` at the end of that line (or on a new line above). Same goes for the `vector` file, use `---@type VectorLib` for that. This assists with cases where the language server cannot resolve the `__mod-name__` prefix in the require call.
 
 For completeness I'll also point you to [FMTK](https://github.com/justarandomgeek/vscode-factoriomod-debug/blob/current/doc/workspace.md) which has support for LuaLS as well, and this mod is using some of the type definitions that FMTK generates from the machine readable documentation of Factorio, such as LuaEntity, LuaEntityPrototype or MapPosition, etc.
 
