@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.1.1
-Date: ????
+Date: 2024-01-28
   Bugfixes:
     - Fixed error when estimating speed for inserter picking up from undergrounds, loaders or linked belts
 ---------------------------------------------------------------------------------------------------
