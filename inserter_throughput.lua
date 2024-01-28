@@ -1111,7 +1111,8 @@ local function estimate_extra_pickup_ticks(inserter, pickup, pickup_belt_speed, 
     return inserter.stack_size - 1
   end
 
-  local item_flow_vector = item_flow_vector_lut[pickup.belt_direction][pickup.belt_shape]
+  local belt_shape = pickup.target_type == "belt" and assert(pickup.belt_shape) or "straight"
+  local item_flow_vector = item_flow_vector_lut[pickup.belt_direction][belt_shape]
   -- Since item_flow_vector has a length of 1, extension_influence and rotation influence are values 0 to 1.
   local extension_influence = math_abs(vec.dot_product(item_flow_vector, pickup_vector))
   local rotation_influence = 1 - extension_influence
