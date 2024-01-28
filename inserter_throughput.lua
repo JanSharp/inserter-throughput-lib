@@ -624,6 +624,48 @@ end
 
 -- pickup from real world
 
+local get_belt_shape
+do
+  ---@param mod_name string
+  ---@param major integer
+  ---@param minor integer
+  ---@param patch integer
+  local function mod_version_is_equal_or_higher(mod_name, major, minor, patch)
+    local version = script.active_mods[mod_name]
+    if not version then return end
+    local one, two, three = string.match(version, "^(%d+)%.(%d+)%.(%d+)$")
+    one = tonumber(one)
+    two = tonumber(two)
+    three = tonumber(three)
+    return one > major
+      or one == major and two > minor
+      or one == major and two == minor and three >= patch
+  end
+
+  -- Unfortunately this means that if base is disabled this is going to evaluate to false and it will end up
+  -- using the inefficient way of determining belt shape.
+  -- Fortunately the amount of people using minimal-no-base-mod are very limited, specifically because no
+  -- overhaul has been made that depends on it yet, so it'll be super rare, if it happens at all.
+  local api_has_belt_shape = mod_version_is_equal_or_higher("base", 1, 1, 100)
+
+  ---@param entity LuaEntity
+  ---@return "straight"|"left"|"right"
+  function get_belt_shape(entity)
+    if api_has_belt_shape then
+      return entity.belt_shape
+    end
+    local inputs = entity.belt_neighbours.inputs
+    if not inputs[1] or inputs[2] then return "straight" end
+    local orientation = entity.orientation
+    local input_orientation = inputs[1].orientation
+    -- Modulo on negative values in Lua is like magic. -0.75 % 1 == 0.25. Isn't it wonderful?
+    local orientation_diff = (orientation - input_orientation) % 1
+    return orientation_diff == 0 and "straight"
+      or orientation_diff == 0.25 and "right"
+      or "left"
+  end
+end
+
 ---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
 ---@param def InserterThroughputDefinition
 ---@param entity LuaEntity?
@@ -638,7 +680,7 @@ local function pickup_from_entity(def, entity, pickup_position)
     pickup.belt_direction = entity.direction
   end
   if target_type == "belt" then ---@cast entity -nil
-    pickup.belt_shape = entity.belt_shape
+    pickup.belt_shape = get_belt_shape(entity)
   elseif target_type == "linked-belt" then ---@cast entity -nil
     pickup.linked_belt_type = entity.linked_belt_type
   elseif target_type == "underground" then ---@cast entity -nil
