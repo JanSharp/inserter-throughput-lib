@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.1.0
-Date: ????
+Date: 2024-01-28
   Features:
     - Added api for utility, definition creation and estimation functions
     - Added type annotations as a form of documentation
