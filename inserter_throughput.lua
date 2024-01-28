@@ -285,8 +285,8 @@ local function get_pickup_target_priority(entity, inserter)
   end
   if entity.prototype.has_flag("no-automated-item-removal") then return 0 end
   return belt_connectable_target_type_lut[entity_type] and 4
-    or entity_type == "straight-rail"
-    or entity_type == "curved-rail"
+    or entity_type == "straight-rail" and 3
+    or entity_type == "curved-rail" and 3
     or entity.get_output_inventory() and 3
     or 0
 end
