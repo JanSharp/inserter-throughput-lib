@@ -156,7 +156,6 @@ end)
 - [`get_position_in_tile`](#get_position_in_tile)
 - [`get_stack_size_for_prototype`](#get_stack_size_for_prototype)
 - [`get_stack_size`](#get_stack_size)
-- [`is_placeable_off_grid`](#is_placeable_off_grid)
 - [`snap_build_position`](#snap_build_position)
 - [`normalize_belt_speed`](#normalize_belt_speed)
 
@@ -770,16 +769,6 @@ Uses `inserter.inserter_target_pickup_count`. However `get_stack_size` also hand
 
 - `inserter` :: [`LuaEntity`](https://lua-api.factorio.com/latest/classes/LuaEntity.html)\
   Ghost or real.
-
-### is_placeable_off_grid
-
-**Parameters**
-
-- `prototype` :: [`LuaEntityPrototype`](https://lua-api.factorio.com/latest/classes/LuaEntityPrototype.html)
-
-**Return values**
-
-- `boolean`
 
 ### snap_build_position
 

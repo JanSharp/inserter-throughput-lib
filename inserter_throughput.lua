@@ -275,7 +275,7 @@ local function get_pickup_target_priority(entity, inserter)
   if inserter and not entity.force.is_friend(inserter.force) then return 0 end
   local entity_type = entity.type
   if entity_type == "entity-ghost" then
-    if (entity.ghost_prototype.flags or {})["no-automated-item-removal"] then return 0 end
+    if entity.ghost_prototype.has_flag("no-automated-item-removal") then return 0 end
     entity_type = entity.ghost_type
     return belt_connectable_target_type_lut[entity_type] and 2
       or can_always_pickup[entity_type] and 1
@@ -283,7 +283,7 @@ local function get_pickup_target_priority(entity, inserter)
       or can_pickup_if_burner[entity_type] and entity.ghost_prototype.burner_prototype and 1
       or 0
   end
-  if (entity.prototype.flags or {})["no-automated-item-removal"] then return 0 end
+  if entity.prototype.has_flag("no-automated-item-removal") then return 0 end
   return belt_connectable_target_type_lut[entity_type] and 4
     or entity_type == "straight-rail"
     or entity_type == "curved-rail"
@@ -313,7 +313,7 @@ local function get_drop_target_priority(entity, inserter)
     entity_type = entity.ghost_type
     prototype_key = "ghost_prototype"
   end
-  if (entity[prototype_key].flags or {})["no-automated-item-insertion"] then return 0 end
+  if entity[prototype_key].has_flag("no-automated-item-insertion") then return 0 end
   return belt_connectable_target_type_lut[entity_type] and (2 + offset)
     or can_always_drop[entity_type] and (1 + offset)
     -- This might not be the best way to check for a burner energy source however it works.
@@ -444,13 +444,6 @@ local function get_position_in_tile(position) ---@cast position VectorXY
   return vec.mod_scalar(vec.copy(position), 1)
 end
 
----@param prototype LuaEntityPrototype
----@return boolean
-local function is_placeable_off_grid(prototype)
-  local flags = prototype.flags -- Can be nil when all flags are unset.
-  return flags and flags["placeable-off-grid"] or false
-end
-
 ---This appears to match the game's snapping logic perfectly.
 ---@generic T : VectorXY
 ---@param prototype LuaEntityPrototype
@@ -458,7 +451,7 @@ end
 ---@param direction defines.direction
 ---@return T position @ The same table as the `position` parameter.
 local function snap_build_position(prototype, position, direction) ---@cast position VectorXY
-  if is_placeable_off_grid(prototype) then return position end
+  if prototype.has_flag("placeable-off-grid") then return position end
   local is_north_south = north_or_south_lut[direction]
   local width = is_north_south and prototype.tile_width or prototype.tile_height
   local height = is_north_south and prototype.tile_height or prototype.tile_width
@@ -1252,7 +1245,6 @@ local inserter_throughput_lib = {
   get_position_in_tile = get_position_in_tile,
   get_stack_size_for_prototype = get_stack_size_for_prototype,
   get_stack_size = get_stack_size,
-  is_placeable_off_grid = is_placeable_off_grid,
   snap_build_position = snap_build_position,
   normalize_belt_speed = normalize_belt_speed,
   pickup_from_inventory = pickup_from_inventory,
