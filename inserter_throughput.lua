@@ -626,13 +626,11 @@ end
 
 local get_belt_shape
 do
-  ---@param mod_name string
+  ---@param version string
   ---@param major integer
   ---@param minor integer
   ---@param patch integer
-  local function mod_version_is_equal_or_higher(mod_name, major, minor, patch)
-    local version = script.active_mods[mod_name]
-    if not version then return end
+  local function version_is_equal_or_higher(version, major, minor, patch)
     local one, two, three = string.match(version, "^(%d+)%.(%d+)%.(%d+)$")
     one = tonumber(one)
     two = tonumber(two)
@@ -642,11 +640,14 @@ do
       or one == major and two == minor and three >= patch
   end
 
-  -- Unfortunately this means that if base is disabled this is going to evaluate to false and it will end up
-  -- using the inefficient way of determining belt shape.
-  -- Fortunately the amount of people using minimal-no-base-mod are very limited, specifically because no
-  -- overhaul has been made that depends on it yet, so it'll be super rare, if it happens at all.
-  local api_has_belt_shape = mod_version_is_equal_or_higher("base", 1, 1, 100)
+  local base_version = script.active_mods["base"]
+  local api_has_belt_shape = base_version and version_is_equal_or_higher(base_version, 1, 1, 100)
+
+  ---@param entity LuaEntity
+  ---@return "straight"|"left"|"right"
+  local function belt_shape_field_getter(entity)
+    return entity.belt_shape
+  end
 
   ---@param entity LuaEntity
   ---@return "straight"|"left"|"right"
@@ -654,6 +655,11 @@ do
     if api_has_belt_shape then
       return entity.belt_shape
     end
+    if not base_version then -- Can't check version without base enabled, try with pcall.
+      local success, result = pcall(belt_shape_field_getter)
+      if success then return result end
+    end
+    -- Old Factorio version, do it the hard way.
     local inputs = entity.belt_neighbours.inputs
     if not inputs[1] or inputs[2] then return "straight" end
     local orientation = entity.orientation
