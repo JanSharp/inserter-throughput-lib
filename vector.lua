@@ -41,31 +41,91 @@ local function copy(vector) ---@cast vector VectorXY
 end
 
 ---@param vector VectorXY
+---@return boolean @ `true` when both `x` and `y` are `== 0`.
+local function is_zero(vector)
+  return vector.x == 0 and vector.y == 0
+end
+
+---@param vector VectorXY
 ---@return number
 local function get_length(vector)
   local x, y = vector.x, vector.y
   return math_sqrt(x * x + y * y)
 end
 
+---Errors when `target_length ~= 0 and is_zero(vector)`.
 ---@generic T : VectorXY
 ---@param vector T @ Gets modified.
----@param length number
+---@param target_length number
+---@param current_length number? @ Precalculated length if available.
 ---@return T vector
-local function set_length(vector, length) ---@cast vector VectorXY
-  local multiplier = length / get_length(vector)
+local function set_length(vector, target_length, current_length) ---@cast vector VectorXY
+  if target_length == 0 then
+    vector.x = 0
+    vector.y = 0
+    return vector
+  end
+  current_length = current_length or get_length(vector)
+  if current_length == 0 then
+    error("Setting the length of a 0 length vector to non 0 length is undefined. \z
+      Instead of starting a NaN infection, this errors. \z
+      Check for 0 length vectors before or use 'set_length_safe' which returns nil instead of erroring."
+    )
+  end
+  local multiplier = target_length / current_length
   vector.x = vector.x * multiplier
   vector.y = vector.y * multiplier
   return vector
 end
 
+---When the `target_length` is 0, the result is going to be a 0 length vector.\
+---Otherwise, when the given vector has a length of 0, the return value is going to be `nil`.
+---@generic T : VectorXY
+---@param vector T @ Gets modified. When `nil` is returned, `vector` did not get modified.
+---@param target_length number
+---@param current_length number? @ Precalculated length if available.
+---@return T? vector @ `nil` when `target_length ~= 0 and is_zero(vector)`.
+local function set_length_safe(vector, target_length, current_length) ---@cast vector VectorXY
+  if target_length == 0 then
+    vector.x = 0
+    vector.y = 0
+    return vector
+  end
+  current_length = current_length or get_length(vector)
+  if current_length == 0 then return end
+  local multiplier = target_length / current_length
+  vector.x = vector.x * multiplier
+  vector.y = vector.y * multiplier
+  return vector
+end
+
+---Errors when `is_zero(vector)`.
 ---@generic T : VectorXY
 ---@param vector T @ Gets modified.
----@param length number? @ Precalculated length if available.
+---@param current_length number? @ Precalculated length if available.
 ---@return T vector
-local function normalize(vector, length) ---@cast vector VectorXY
-  length = length or get_length(vector)
-  vector.x = vector.x / length
-  vector.y = vector.y / length
+local function normalize(vector, current_length) ---@cast vector VectorXY
+  current_length = current_length or get_length(vector)
+  if current_length == 0 then
+    error("Normalizing a vector of 0 length is undefined. \z
+      Instead of starting a NaN infection, this errors. \z
+      Check for 0 length vectors before or use 'normalize_safe' which returns nil instead of erroring."
+    )
+  end
+  vector.x = vector.x / current_length
+  vector.y = vector.y / current_length
+  return vector
+end
+
+---@generic T : VectorXY
+---@param vector T @ Gets modified. When `nil` is returned, `vector` did not get modified.
+---@param current_length number? @ Precalculated length if available.
+---@return T? vector @ `nil` when `is_zero(vector)`.
+local function normalize_safe(vector, current_length) ---@cast vector VectorXY
+  current_length = current_length or get_length(vector)
+  if current_length == 0 then return end
+  vector.x = vector.x / current_length
+  vector.y = vector.y / current_length
   return vector
 end
 
@@ -261,23 +321,57 @@ end
 
 local rad360 = math.rad(360)
 
----North is 0, goes clockwise, always positive.
+---North is 0, goes clockwise, always positive.\
+---Errors when `is_zero(vector)`. Check for 0 length vectors before or see `get_orientation_safe`.
 ---@param vector VectorXY
 ---@return number
 local function get_radians(vector)
+  local x, y = vector.x, vector.y
+  if x == 0 and y == 0 then
+    error("Getting the radians of a 0 length vector is undefined. \z
+      Check for 0 length vectors before or use 'get_radians_safe' which returns nil instead of erroring."
+    )
+  end
   -- https://stackoverflow.com/questions/283406/what-is-the-difference-between-atan-and-atan2-in-c
   -- x and y are flipped because in Factorio north is 0.
-  -- Lua's modulo always returns a positive number. This is making use of that to turn the -180 to 180 range.
+  -- Lua's modulo always returns a positive number. This is making use of that to turn the -180 to 180 range
   -- into a 0 to 360 range.
-  return math_atan2(vector.x, -vector.y) % rad360
+  return math_atan2(x, -y) % rad360
+end
+
+---North is 0, goes clockwise, always positive.
+---@param vector VectorXY
+---@return number? @ `nil` when `is_zero(vector)`.
+local function get_radians_safe(vector)
+  local x, y = vector.x, vector.y
+  if x == 0 and y == 0 then return end
+  -- Copy paste of get_radians. See get_radians for comments.
+  return math_atan2(x, -y) % rad360
+end
+
+---Returns a RealOrientation, so `[0, 1)` where 0 is north, 0.25 is east, 0.5 is south, 0.75 is west.\
+---Errors when `is_zero(vector)`. Check for 0 length vectors before or see `get_orientation_safe`.
+---@param vector VectorXY
+---@return RealOrientation
+local function get_orientation(vector)
+  local x, y = vector.x, vector.y
+  if x == 0 and y == 0 then
+    error("Getting the orientation of a 0 length vector is undefined. \z
+      Check for 0 length vectors before or use 'get_orientation_safe' which returns nil instead of erroring."
+    )
+  end
+  -- Copy paste of get_radians but divided by rad360. See get_radians for comments.
+  return (math_atan2(x, -y) % rad360) / rad360
 end
 
 ---Returns a RealOrientation, so `[0, 1)` where 0 is north, 0.25 is east, 0.5 is south, 0.75 is west.
 ---@param vector VectorXY
----@return RealOrientation
-local function get_orientation(vector)
-  -- See comments in `radians`.
-  return (math_atan2(vector.x, -vector.y) % rad360) / rad360
+---@return RealOrientation? @ `nil` when `is_zero(vector)`.
+local function get_orientation_safe(vector)
+  local x, y = vector.x, vector.y
+  if x == 0 and y == 0 then return end
+  -- Copy paste of get_radians but divided by rad360. See get_radians for comments.
+  return (math_atan2(x, -y) % rad360) / rad360
 end
 
 ---@param radians number
@@ -419,9 +513,12 @@ local vector_lib = {
   vec_equals = vec_equals,
   matrix_equals = matrix_equals,
   copy = copy,
+  is_zero = is_zero,
   get_length = get_length,
   set_length = set_length,
+  set_length_safe = set_length_safe,
   normalize = normalize,
+  normalize_safe = normalize_safe,
   snap_to_map = snap_to_map,
   add = add,
   sub = sub,
@@ -439,7 +536,9 @@ local vector_lib = {
   max = max,
   dot_product = dot_product,
   get_radians = get_radians,
+  get_radians_safe = get_radians_safe,
   get_orientation = get_orientation,
+  get_orientation_safe = get_orientation_safe,
   rotate_by_radians = rotate_by_radians,
   rotate_by_orientation = rotate_by_orientation,
   rotate_by_direction = rotate_by_direction,

@@ -1,7 +1,12 @@
 ---------------------------------------------------------------------------------------------------
 Version: 1.1.4
 Date: ????
+  Minor Features:
+    - Added vector.is_zero
   Changes:
+    - Changed vector.set_length to take an optional precomputed current length just like normalize
+    - Changed vector set_length, normalize, get_radians, get_orientation to error on zero length vectors
+    - Added set_length_safe, normalize_safe, get_radians_safe, get_orientation_safe
 ---------------------------------------------------------------------------------------------------
 Version: 1.1.3
 Date: 2024-01-30

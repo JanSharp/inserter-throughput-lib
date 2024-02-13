@@ -164,9 +164,12 @@ end)
 - [`vec_equals`](#vec_equals)
 - [`matrix_equals`](#matrix_equals)
 - [`copy`](#copy)
+- [`is_zero`](#is_zero)
 - [`get_length`](#get_length)
 - [`set_length`](#set_length)
+- [`set_length_safe`](#set_length_safe)
 - [`normalize`](#normalize)
+- [`normalize_safe`](#normalize_safe)
 - [`snap_to_map`](#snap_to_map)
 - [`add`](#add)
 - [`sub`](#sub)
@@ -184,7 +187,9 @@ end)
 - [`max`](#max)
 - [`dot_product`](#dot_product)
 - [`get_radians`](#get_radians)
+- [`get_radians_safe`](#get_radians_safe)
 - [`get_orientation`](#get_orientation)
+- [`get_orientation_safe`](#get_orientation_safe)
 - [`rotate_by_radians`](#rotate_by_radians)
 - [`rotate_by_orientation`](#rotate_by_orientation)
 - [`rotate_by_direction`](#rotate_by_direction)
@@ -841,6 +846,17 @@ Rounds down to nearest valid number, because items on belts also use fixed point
 
 - `T`
 
+### is_zero
+
+**Parameters**
+
+- `vector` :: [`VectorXY`](#vectorxy)
+
+**Return values**
+
+- `boolean`\
+  `true` when both `x` and `y` are `== 0`.
+
 ### get_length
 
 **Parameters**
@@ -853,21 +869,7 @@ Rounds down to nearest valid number, because items on belts also use fixed point
 
 ### set_length
 
-**Generics**
-
-- `T` of type [`VectorXY`](#vectorxy)
-
-**Parameters**
-
-- `vector` :: `T`\
-  Gets modified.
-- `length` :: `number`
-
-**Return values**
-
-- `vector` :: `T`
-
-### normalize
+Errors when `target_length ~= 0 and is_zero(vector)`.
 
 **Generics**
 
@@ -877,12 +879,70 @@ Rounds down to nearest valid number, because items on belts also use fixed point
 
 - `vector` :: `T`\
   Gets modified.
-- `length` :: `number`?\
+- `target_length` :: `number`
+- `current_length` :: `number`?\
   Precalculated length if available.
 
 **Return values**
 
 - `vector` :: `T`
+
+### set_length_safe
+
+When the `target_length` is 0, the result is going to be a 0 length vector.\
+Otherwise, when the given vector has a length of 0, the return value is going to be `nil`.
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)
+
+- `vector` :: `T`\
+  Gets modified. When `nil` is returned, `vector` did not get modified.
+- `target_length` :: `number`
+- `current_length` :: `number`?\
+  Precalculated length if available.
+
+**Return values**
+
+- `vector` :: `T`\
+  `nil` when `target_length ~= 0 and is_zero(vector)`.
+
+### normalize
+
+Errors when `is_zero(vector)`.
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)
+
+**Parameters**
+
+- `vector` :: `T`\
+  Gets modified.
+- `current_length` :: `number`?\
+  Precalculated length if available.
+
+**Return values**
+
+- `vector` :: `T`
+
+### normalize_safe
+
+**Generics**
+
+- `T` of type [`VectorXY`](#vectorxy)
+
+**Parameters**
+
+- `vector` :: `T`\
+  Gets modified. When `nil` is returned, `vector` did not get modified.
+- `current_length` :: `number`?\
+  Precalculated length if available.
+
+**Return values**
+
+- `vector` :: `T`\
+  `nil` when `is_zero(vector)`.
 
 ### snap_to_map
 
@@ -1156,7 +1216,8 @@ You can also think about it as projecting `left` onto `right` and the result is 
 
 ### get_radians
 
-North is 0, goes clockwise, always positive.
+North is 0, goes clockwise, always positive.\
+Errors when `is_zero(vector)`. Check for 0 length vectors before or see `get_orientation_safe`.
 
 **Parameters**
 
@@ -1166,7 +1227,33 @@ North is 0, goes clockwise, always positive.
 
 - `number`
 
+### get_radians_safe
+
+North is 0, goes clockwise, always positive.
+
+**Parameters**
+
+- `vector` :: [`VectorXY`](#vectorxy)
+
+**Return values**
+
+- `number`?\
+  `nil` when `is_zero(vector)`.
+
 ### get_orientation
+
+Returns a RealOrientation, so `[0, 1)` where 0 is north, 0.25 is east, 0.5 is south, 0.75 is west.\
+Errors when `is_zero(vector)`. Check for 0 length vectors before or see `get_orientation_safe`.
+
+**Parameters**
+
+- `vector` :: [`VectorXY`](#vectorxy)
+
+**Return values**
+
+- [`RealOrientation`](https://lua-api.factorio.com/latest/concepts.html#RealOrientation)
+
+### get_orientation_safe
 
 Returns a RealOrientation, so `[0, 1)` where 0 is north, 0.25 is east, 0.5 is south, 0.75 is west.
 
@@ -1176,7 +1263,8 @@ Returns a RealOrientation, so `[0, 1)` where 0 is north, 0.25 is east, 0.5 is so
 
 **Return values**
 
-- [`RealOrientation`](https://lua-api.factorio.com/latest/concepts.html#RealOrientation)
+- [`RealOrientation`](https://lua-api.factorio.com/latest/concepts.html#RealOrientation)?\
+  `nil` when `is_zero(vector)`.
 
 ### rotate_by_radians
 
