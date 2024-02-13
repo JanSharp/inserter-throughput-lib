@@ -1208,7 +1208,7 @@ local function cap_to_belt_speed(
 end
 
 ---Snaps belt speeds and vectors to valid 1/256ths, because they are all related to MapPositions. Does not
----modify the given definition however.
+---modify the given definition table however.
 ---@param def InserterThroughputDefinition
 ---@return number items_per_second
 local function estimate_inserter_speed(def)

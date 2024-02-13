@@ -308,7 +308,7 @@ Must watch (3blue1brown) https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3Mi
 
 ### estimate_inserter_speed
 
-Snaps belt speeds and vectors to valid 1/256ths, because they are all related to MapPositions. Does not modify the given definition however.
+Snaps belt speeds and vectors to valid 1/256ths, because they are all related to MapPositions. Does not modify the given definition table however.
 
 **Parameters**
 
