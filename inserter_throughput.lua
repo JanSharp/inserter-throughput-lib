@@ -1005,10 +1005,10 @@ local function calculate_extension_ticks(extension_speed, from_length, to_length
 end
 
 ---@param rotation_speed number @ RealOrientation per tick.
----@param from_vector VectorXY @ Must be normalized.
----@param to_vector VectorXY @ Must be normalized.
+---@param from_vector VectorXY
+---@param to_vector VectorXY
 ---@param does_chase boolean @ Is this inserter picking up from a belt?
----@param from_length number @ Length of the from_vector, before normalization.
+---@param from_length number @ Length of the from_vector.
 ---@param from_is_belt boolean
 ---@return integer
 local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, does_chase, from_length, from_is_belt)
@@ -1225,6 +1225,7 @@ local function estimate_inserter_speed(def)
   local drop_length = vec.get_length(drop_vector)
   local pickup_is_belt = is_belt_connectable_target_type(pickup.target_type)
   local does_chase = inserter.chases_belt_items and pickup_is_belt
+
   local extension_ticks = calculate_extension_ticks(
     inserter.extension_speed,
     pickup_length,
@@ -1232,6 +1233,15 @@ local function estimate_inserter_speed(def)
     does_chase,
     pickup_is_belt
   )
+  local rotation_ticks = calculate_rotation_ticks(
+    inserter.rotation_speed,
+    pickup_vector,
+    drop_vector,
+    does_chase,
+    pickup_length,
+    pickup_is_belt
+  )
+
   local extra_drop_ticks, drops_to_input_of_splitter = calculate_extra_drop_ticks(
     inserter,
     drop,
@@ -1245,17 +1255,7 @@ local function estimate_inserter_speed(def)
     pickup_vector,
     pickup_length
   )
-  -- Normalize just before `calculate_rotation_ticks` because it is the only func that needs them normalized.
-  vec.normalize(pickup_vector, pickup_length)
-  vec.normalize(drop_vector, drop_length)
-  local rotation_ticks = calculate_rotation_ticks(
-    inserter.rotation_speed,
-    pickup_vector,
-    drop_vector,
-    does_chase,
-    pickup_length,
-    pickup_is_belt
-  )
+
   local ticks_per_swing = math_max(extension_ticks, rotation_ticks, 1)
   local total_ticks = (ticks_per_swing * 2) + extra_drop_ticks + extra_pickup_ticks
   return cap_to_belt_speed(
