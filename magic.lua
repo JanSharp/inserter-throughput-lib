@@ -10,6 +10,6 @@
 
 return {
   extension_distance_offset = -0x3.615d22255859ap-4, -- -0.211270460
-  rotation_osset_from_tile_center = 0x1.49bbd2c93b91p-16, -- 0.000019654
+  rotation_offset_from_tile_center = 0x1.49bbd2c93b91p-16, -- 0.000019654
   belt_speed_multiplier = 0x2.8106ca96e5f42p-4, -- 0.156500617
 }

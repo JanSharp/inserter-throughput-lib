@@ -4,14 +4,14 @@ local current = require("__inserter-throughput-lib__.magic")
 ---@class ParamsITL
 local initial_min = {
   extension_distance_offset = 0.05,
-  rotation_osset_from_tile_center = 0.05,
+  rotation_offset_from_tile_center = 0.05,
   belt_speed_multiplier = 1,
 }
 
 ---@type ParamsITL
 local initial_max = {
   extension_distance_offset = 0.5,
-  rotation_osset_from_tile_center = 0.5,
+  rotation_offset_from_tile_center = 0.5,
   belt_speed_multiplier = 1,
 }
 

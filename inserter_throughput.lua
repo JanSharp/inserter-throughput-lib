@@ -977,13 +977,13 @@ end
 -- calculations and estimations
 
 local extension_distance_offset ---@type number
-local rotation_osset_from_tile_center ---@type number
+local rotation_offset_from_tile_center ---@type number
 local belt_speed_multiplier ---@type number
 
 ---@param params ParamsITL
 local function update_params(params)
   extension_distance_offset = params.extension_distance_offset
-  rotation_osset_from_tile_center = params.rotation_osset_from_tile_center
+  rotation_offset_from_tile_center = params.rotation_offset_from_tile_center
   belt_speed_multiplier = params.belt_speed_multiplier
 end
 
@@ -1029,7 +1029,7 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
   end
 
   local orientation_for_half_a_tile = from_is_belt
-    and vec.get_orientation{x = rotation_osset_from_tile_center % 0.51, y = -from_length}
+    and vec.get_orientation{x = rotation_offset_from_tile_center % 0.51, y = -from_length}
     or 0
   return math_max(0, (diff - orientation_for_half_a_tile) / rotation_speed)
 end
