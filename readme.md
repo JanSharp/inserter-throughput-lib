@@ -101,6 +101,7 @@ end)
 
 - [`estimate_inserter_speed`](#estimate_inserter_speed)
 - [`is_estimate`](#is_estimate)
+- [`is_unreasonable_definition`](#is_unreasonable_definition)
 
 ## Definition Creation Functions
 
@@ -310,6 +311,8 @@ Must watch (3blue1brown) https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3Mi
 
 Snaps belt speeds and vectors to valid 1/256ths, because they are all related to MapPositions. Does not modify the given definition table however.
 
+If `is_unreasonable_definition(def)` then this simply returns 0.
+
 **Parameters**
 
 - `def` :: [`InserterThroughputDefinition`](#inserterthroughputdefinition)
@@ -322,6 +325,8 @@ Snaps belt speeds and vectors to valid 1/256ths, because they are all related to
 
 Whether or not the given definition can be used for accurate throughput calculation or if it is just an estimate. Under what conditions this returns true or false is not part of the public api.
 
+If `is_unreasonable_definition(def)` then this returns `true`.
+
 **Parameters**
 
 - `def` :: [`InserterThroughputDefinition`](#inserterthroughputdefinition)
@@ -329,6 +334,16 @@ Whether or not the given definition can be used for accurate throughput calculat
 **Return values**
 
 - `boolean`
+
+### is_unreasonable_definition
+
+Is the given definition one which does not have any reasonable way to calculate or estimate inserter throughput for it? Some of these types of definitions are technically valid according to the game, some of them would not get past the prototype loading phase if a prototype were to have those values. This function does not specify which exact definitions qualify as such, as it may change. Specifically because it does not do full validation of the definition, and there could always be more things that pop up in the future.
+
+This function is used by both `estimate_inserter_speed` and `is_estimate`, no need to manually call it before calling those functions, unless it requires other special handling.
+
+**Parameters**
+
+- `def` :: [`InserterThroughputDefinition`](#inserterthroughputdefinition)
 
 ### make_empty_definition
 

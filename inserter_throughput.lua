@@ -465,7 +465,7 @@ local function snap_build_position(prototype, position, direction) ---@cast posi
 end
 
 ---Rounds down to nearest valid number, because items on belts also use fixed point positions. Same resolution
----as MapPositions, so 1/256.
+---as MapPositions, so 1/256. (Tested this, it accurately represents how the game handles belt speeds.)
 ---@param belt_speed number @ Tiles per tick.
 ---@return number belt_speed
 local function normalize_belt_speed(belt_speed)
@@ -1207,11 +1207,44 @@ local function cap_to_belt_speed(
   return items_per_second
 end
 
+---Is the given definition one which does not have any reasonable way to calculate or estimate inserter
+---throughput for it? Some of these types of definitions are technically valid according to the game, some of
+---them would not get past the prototype loading phase if a prototype were to have those values. This function
+---does not specify which exact definitions qualify as such, as it may change. Specifically because it does
+---not do full validation of the definition, and there could always be more things that pop up in the future.
+---
+---This function is used by both `estimate_inserter_speed` and `is_estimate`, no need to manually call it
+---before calling those functions, unless it requires other special handling.
+---@param def InserterThroughputDefinition
+local function is_unreasonable_definition(def)
+  local inserter = def.inserter
+  if inserter.extension_speed <= 0 or inserter.rotation_speed <= 0 then
+    -- The game actually doesn't error on 0 or negative values for these 2 properties, but 99.9% of the time
+    -- they end up effectively breaking the inserter and it will not transfer any items. There may be some
+    -- edge cases where the inserter would actually work, more likely with 0s not with negatives, but I do not
+    -- consider it to be worth the time to figure out the exact conditions for those edge cases.
+    return true
+  end
+  -- The game accepts belt speeds > 0, however speeds < 1/256 actually end up in the belt just not moving
+  -- items at all. The animation still plays, but that's separate logic. Items do not move.
+  local pickup = def.pickup
+  if is_belt_connectable_target_type(pickup.target_type) and normalize_belt_speed(pickup.belt_speed) <= 0 then
+    return true
+  end
+  local drop = def.drop
+  if is_belt_connectable_target_type(drop.target_type) and normalize_belt_speed(drop.belt_speed) <= 0 then
+    return true
+  end
+end
+
 ---Snaps belt speeds and vectors to valid 1/256ths, because they are all related to MapPositions. Does not
 ---modify the given definition table however.
+---
+---If `is_unreasonable_definition(def)` then this simply returns 0.
 ---@param def InserterThroughputDefinition
 ---@return number items_per_second
 local function estimate_inserter_speed(def)
+  if is_unreasonable_definition(def) then return 0 end
   local inserter = def.inserter
   local pickup = def.pickup
   local drop = def.drop
@@ -1270,9 +1303,16 @@ end
 
 ---Whether or not the given definition can be used for accurate throughput calculation or if it is just an
 ---estimate. Under what conditions this returns true or false is not part of the public api.
+---
+---If `is_unreasonable_definition(def)` then this returns `true`.
 ---@param def InserterThroughputDefinition
 ---@return boolean
 local function is_estimate(def)
+  if is_unreasonable_definition(def) then
+    -- Unreasonable definitions aren't necessarily estimates, however calling them accurate calculations is
+    -- more wrong than calling them estimates.
+    return true
+  end
   -- TODO: when addressing the TODOs for splitters in calculate_extra_drop_ticks, remove `drop.target_type == "splitter"` from here.
   -- TODO: when implementing dropping to loaders, remove the check for them from here.
   local drop = def.drop
@@ -1326,5 +1366,6 @@ local inserter_throughput_lib = {
   make_full_definition_for_inserter = make_full_definition_for_inserter,
   estimate_inserter_speed = estimate_inserter_speed,
   is_estimate = is_estimate,
+  is_unreasonable_definition = is_unreasonable_definition,
 }
 return inserter_throughput_lib

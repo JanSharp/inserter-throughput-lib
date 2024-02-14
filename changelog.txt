@@ -3,10 +3,13 @@ Version: 1.1.4
 Date: ????
   Minor Features:
     - Added vector.is_zero
+    - Added inserter_throughput.is_unreasonable_definition
   Changes:
     - Changed vector.set_length to take an optional precomputed current length just like normalize
     - Changed vector set_length, normalize, get_radians, get_orientation to error on zero length vectors
     - Added set_length_safe, normalize_safe, get_radians_safe, get_orientation_safe
+  Bugfixes:
+    - Fixed estimate_inserter_speed and is_estimate erroring on weird inserter and belt speeds
 ---------------------------------------------------------------------------------------------------
 Version: 1.1.3
 Date: 2024-01-30
