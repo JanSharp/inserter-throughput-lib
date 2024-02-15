@@ -239,8 +239,12 @@ Alias of:
   Relative to inserter position.
 - `chases_belt_items` :: `boolean`\
   [`InserterPrototype::chases_belt_items`](https://lua-api.factorio.com/latest/prototypes/InserterPrototype.html#chases_belt_items).
+- `direction` :: [`defines.direction`](https://lua-api.factorio.com/latest/defines.html#defines.direction)?\
+  The base direction of the inserter, separate from current pickup or drop vectors.\
+  Only used and required if the `pickup_vector` or `drop_vector` has a length of 0 (in other words if `vec.is_zero(vector)`).
 - `inserter_position_in_tile` :: [`VectorXY`](#vectorxy)?\
-  Modulo (%) 1 of x and y of the inserter's position.
+  Modulo (%) 1 of x and y of the inserter's position.\
+  Only used and required if `drop.is_splitter` is true.
 
 ### InserterThroughputLoaderDefinitionBase
 

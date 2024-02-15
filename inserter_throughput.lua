@@ -37,6 +37,10 @@ local math_max = math.max
 ---@field drop_vector VectorXY @ Relative to inserter position.
 ---[`InserterPrototype::chases_belt_items`](https://lua-api.factorio.com/latest/prototypes/InserterPrototype.html#chases_belt_items).
 ---@field chases_belt_items boolean
+---The base direction of the inserter, separate from current pickup or drop vectors.\
+---Only used and required if the `pickup_vector` or `drop_vector` has a length of 0
+---(in other words if `vec.is_zero(vector)`).
+---@field direction defines.direction?
 ---Modulo (%) 1 of x and y of the inserter's position.\
 ---Only used and required if `drop.is_splitter` is true.
 ---@field inserter_position_in_tile VectorXY?
@@ -908,6 +912,7 @@ end
 ---@param position VectorXY? @ Default: `get_default_inserter_position_in_tile(inserter_prototype, direction)`.
 ---@param stack_size integer
 local function inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, direction, position, stack_size)
+  inserter_data.direction = direction
   inserter_data.rotation_speed = inserter_prototype.inserter_rotation_speed
   inserter_data.extension_speed = inserter_prototype.inserter_extension_speed
   inserter_data.stack_size = stack_size
@@ -1004,16 +1009,61 @@ local function calculate_extension_ticks(extension_speed, from_length, to_length
   return math_max(0, (diff + (from_is_belt and extension_distance_offset or 0)) / extension_speed)
 end
 
+--[[
+local inserter = util.copy(data.raw["inserter"]["inserter"])
+inserter.allow_custom_vectors = true
+inserter.name = "test-inserter"
+inserter.stack_size_bonus = max_stack_size - 1
+inserter.energy_source = {type = "void"}
+-- keep one of the two commented out.
+-- inserter.pickup_position = {x = 0, y = 0}
+inserter.insert_position = {x = 0, y = 0}
+inserter.flags[#inserter.flags+1] = "no-automated-item-removal"
+inserter.flags[#inserter.flags+1] = "no-automated-item-insertion"
+inserter.flags[#inserter.flags+1] = "building-direction-8-way"
+data:extend{inserter}
+
+/c
+local i = 1 for _, dir in pairs(defines.direction) do
+  local create_entity = game.player.surface.create_entity
+  create_entity{position = {x = i * 3, y = 0}, name = "test-inserter", direction = dir, force = "player"}
+  local chest = create_entity{position = {x = i * 3, y = 0}, name = "infinity-chest", force = "player"}
+  chest.set_infinity_container_filter(1, {name = "iron-plate", count = 100, mode = "exactly"})
+  i = i + 1
+end
+]]
+
+---@type table<defines.direction, number>
+local orientation_for_zero_length_vector_lut = {
+  [defines.direction.north] = 0.25,
+  [defines.direction.northeast] = 0.25,
+  [defines.direction.east] = 0.75,
+  [defines.direction.southeast] = 0.75,
+  [defines.direction.south] = 0.75,
+  [defines.direction.southwest] = 0.25,
+  [defines.direction.west] = 0.25,
+  [defines.direction.northwest] = 0.25,
+}
+
 ---@param rotation_speed number @ RealOrientation per tick.
+---@param inserter_direction defines.direction?
 ---@param from_vector VectorXY
 ---@param to_vector VectorXY
 ---@param does_chase boolean @ Is this inserter picking up from a belt?
 ---@param from_length number @ Length of the from_vector.
 ---@param from_is_belt boolean
 ---@return integer
-local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, does_chase, from_length, from_is_belt)
-  local from_orientation = vec.get_orientation(from_vector)
-  local to_orientation = vec.get_orientation(to_vector)
+local function calculate_rotation_ticks(rotation_speed, inserter_direction, from_vector, to_vector, does_chase, from_length, from_is_belt)
+  local from_orientation = vec.get_orientation_safe(from_vector)
+    or orientation_for_zero_length_vector_lut[assert(
+      inserter_direction,
+      "Must provide inserter.direction if inserter.pickup_vector has a length of 0."
+    )]
+  local to_orientation = vec.get_orientation_safe(to_vector)
+    or orientation_for_zero_length_vector_lut[assert(
+      inserter_direction,
+      "Must provide inserter.direction if inserter.drop_vector has a length of 0."
+    )]
 
   local diff = math_abs(from_orientation - to_orientation)
   if diff > 0.5 then
@@ -1029,6 +1079,7 @@ local function calculate_rotation_ticks(rotation_speed, from_vector, to_vector, 
   end
 
   local orientation_for_half_a_tile = from_is_belt
+    -- rotation_offset_from_tile_center cannot be zero, so get_orientation will always succeed.
     and vec.get_orientation{x = rotation_offset_from_tile_center % 0.51, y = -from_length}
     or 0
   return math_max(0, (diff - orientation_for_half_a_tile) / rotation_speed)
@@ -1252,6 +1303,8 @@ local function estimate_inserter_speed(def)
   pickup_belt_speed = pickup_belt_speed and normalize_belt_speed(pickup_belt_speed) ---@cast pickup_belt_speed -nil
   local drop_belt_speed = drop.belt_speed
   drop_belt_speed = drop_belt_speed and normalize_belt_speed(drop_belt_speed) ---@cast drop_belt_speed -nil
+  -- IMPORTANT: Ensure that vectors with length 0 are handled. set_length, normalize, get_radians and [...]
+  -- get_orientation require special handling for them.
   local pickup_vector = vec.snap_to_map(vec.copy(inserter.pickup_vector))
   local drop_vector = vec.snap_to_map(vec.copy(inserter.drop_vector))
   local pickup_length = vec.get_length(pickup_vector)
@@ -1268,6 +1321,7 @@ local function estimate_inserter_speed(def)
   )
   local rotation_ticks = calculate_rotation_ticks(
     inserter.rotation_speed,
+    inserter.direction,
     pickup_vector,
     drop_vector,
     does_chase,
