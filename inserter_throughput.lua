@@ -570,6 +570,7 @@ local function pickup_from_linked_belt(def, belt_speed, belt_direction, linked_b
   pickup.target_type = "linked-belt"
   pickup.belt_speed = belt_speed
   pickup.belt_direction = belt_direction
+  pickup.linked_belt_type = linked_belt_type
 end
 
 ---Sets all fields in `def.pickup`, unrelated fields get set to `nil`.
