@@ -1,7 +1,7 @@
 {
   "name": "inserter-throughput-lib",
-  "version": "1.1.5",
-  "factorio_version": "1.1",
+  "version": "2.0.1",
+  "factorio_version": "2.0",
   "title": "Inserter Throughput Lib",
   "author": "JanSharp",
   "description": "A library for other mods to calculate and estimate inserter throughput in different setups.",
