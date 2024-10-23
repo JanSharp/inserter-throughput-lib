@@ -234,7 +234,7 @@ do
   -- Since all mutable fields get written to every time this is used, we can reuse the same tables every time.
   local left_top = {x = nil, y = nil}
   local right_bottom = {x = nil, y = nil}
-  ---@type LuaSurface.find_entities_filtered_param
+  ---@type EntitySearchFilters
   local arg = {area = {left_top = left_top, right_bottom = right_bottom}}
 
   ---High means better.
@@ -409,7 +409,7 @@ end
 local function get_stack_size_for_prototype(prototype, force, manual_override, control_signal_id, red, green)
   local stack_size = 1 + prototype.inserter_stack_size_bonus
   if force then
-    local bonus = prototype.stack and force.stack_inserter_capacity_bonus or force.inserter_stack_size_bonus
+    local bonus = prototype.bulk and force.bulk_inserter_capacity_bonus or force.inserter_stack_size_bonus
     stack_size = stack_size + bonus
   end
   if manual_override ~= 0 then
@@ -436,8 +436,8 @@ local function get_stack_size(inserter)
     signal_id,
     -- An inserter can have a cb with both red and green being nil. 1 example I know is a ghost inserter with
     -- a ghost wire connection. `get_or_create_control_behavior()` may also result in both being nil.
-    signal_id and cb.get_circuit_network(defines.wire_type.red),
-    signal_id and cb.get_circuit_network(defines.wire_type.green)
+    signal_id and cb.get_circuit_network(defines.wire_connector_id.circuit_red),
+    signal_id and cb.get_circuit_network(defines.wire_connector_id.circuit_green)
   )
 end
 
@@ -909,13 +909,14 @@ end
 ---Sets all fields in `def.inserter`.
 ---@param inserter_data InserterThroughputInserterDefinition
 ---@param inserter_prototype LuaEntityPrototype
+---@param quality string|LuaQualityPrototype
 ---@param direction defines.direction
 ---@param position VectorXY? @ Default: `get_default_inserter_position_in_tile(inserter_prototype, direction)`.
 ---@param stack_size integer
-local function inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, direction, position, stack_size)
+local function inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, quality, direction, position, stack_size)
   inserter_data.direction = direction
-  inserter_data.rotation_speed = inserter_prototype.inserter_rotation_speed
-  inserter_data.extension_speed = inserter_prototype.inserter_extension_speed
+  inserter_data.rotation_speed = inserter_prototype.get_inserter_rotation_speed(quality)--[[@as number]]
+  inserter_data.extension_speed = inserter_prototype.get_inserter_extension_speed(quality)--[[@as number]]
   inserter_data.stack_size = stack_size
   inserter_data.chases_belt_items = inserter_prototype.inserter_chases_belt_items
   position = position -- `snap_build_position` checks if it is placeable off grid.
@@ -927,12 +928,13 @@ end
 ---Sets all fields in `def.inserter`.
 ---@param def InserterThroughputDefinition
 ---@param inserter_prototype LuaEntityPrototype
+---@param quality string|LuaQualityPrototype
 ---@param direction defines.direction
 ---@param position VectorXY? @ Default: `get_default_inserter_position_in_tile(inserter_prototype, direction)`.
 ---@param stack_size integer
-local function inserter_data_based_on_prototype(def, inserter_prototype, direction, position, stack_size)
+local function inserter_data_based_on_prototype(def, inserter_prototype, quality, direction, position, stack_size)
   local inserter_data = get_inserter_data(def)
-  inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, direction, position, stack_size)
+  inserter_data_based_on_prototype_except_for_vectors(inserter_data, inserter_prototype, quality, direction, position, stack_size)
   inserter_data.pickup_vector = vec.rotate_by_direction(inserter_prototype.inserter_pickup_position, direction)--[[@as MapPosition]]
   inserter_data.drop_vector = vec.rotate_by_direction(inserter_prototype.inserter_drop_position, direction)--[[@as MapPosition]]
 end
@@ -946,6 +948,7 @@ local function inserter_data_based_on_entity(def, inserter)
   inserter_data_based_on_prototype_except_for_vectors(
     inserter_data,
     get_real_or_ghost_entity_prototype(inserter),
+    inserter.quality,
     inserter.direction,
     position,
     get_stack_size(inserter)
@@ -1103,7 +1106,7 @@ local function is_drop_to_input_of_splitter(inserter, drop, to_vector)
   inserter_position_in_tile = vec.snap_to_map(vec.copy(inserter_position_in_tile))
   local position_in_drop_tile = vec.mod_scalar(vec.add(inserter_position_in_tile, to_vector), 1)
   local drop_vector_from_tile_center = vec.sub_scalar(position_in_drop_tile, 0.5)
-  local distance_from_center = vec.rotate_by_direction(drop_vector_from_tile_center, -drop.belt_direction).y
+  local distance_from_center = vec.rotate_by_direction(drop_vector_from_tile_center, (-drop.belt_direction)--[[@as defines.direction]]).y
   return distance_from_center >= 0 and distance_from_center or nil
 end
 

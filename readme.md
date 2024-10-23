@@ -378,6 +378,7 @@ Sets all fields in `def.inserter`.
 
 - `def` :: [`InserterThroughputDefinition`](#inserterthroughputdefinition)
 - `inserter_prototype` :: [`LuaEntityPrototype`](https://lua-api.factorio.com/latest/classes/LuaEntityPrototype.html)
+- `quality` :: `string`|[`LuaQualityPrototype`](https://lua-api.factorio.com/latest/classes/LuaQualityPrototype.html)
 - `direction` :: [`defines.direction`](https://lua-api.factorio.com/latest/defines.html#defines.direction)
 - `position` :: [`VectorXY`](#vectorxy)?\
   Default: `get_default_inserter_position_in_tile(inserter_prototype, direction)`.
