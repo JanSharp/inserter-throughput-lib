@@ -27,8 +27,8 @@ for _, belt_speed in pairs(configurations.belt_speeds) do
   local loader = util.copy(data.raw["loader-1x1"]["loader-1x1"])
   loader.name = belt_speed.name.."-loader"
   loader.speed = belt_speed.belt_speed
-  loader.structure.direction_in = util.empty_sprite(1)
-  loader.structure.direction_out = util.empty_sprite(1)
+  loader.structure.direction_in = util.empty_sprite()
+  loader.structure.direction_out = util.empty_sprite()
 
   local splitter = util.copy(data.raw["splitter"]["splitter"])
   splitter.name = belt_speed.name.."-splitter"
@@ -60,6 +60,6 @@ data:extend{splitter_drop_target_test_inserter}
 local ungodly_slow_splitter = util.copy(data.raw["splitter"]["splitter"])
 ungodly_slow_splitter.name = "ungodly-slow-splitter"
 ungodly_slow_splitter.speed = 1/256--0.25--
-ungodly_slow_splitter.structure = util.empty_sprite(1)
-ungodly_slow_splitter.structure_patch = util.empty_sprite(1)
+ungodly_slow_splitter.structure = util.empty_sprite()
+ungodly_slow_splitter.structure_patch = util.empty_sprite()
 data:extend{ungodly_slow_splitter}
