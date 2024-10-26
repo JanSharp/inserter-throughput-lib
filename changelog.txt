@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 2.0.0
-Date: ????
+Date: 2024-10-26
   Changes:
     - Update to Factorio 2.0, note that belt stacking support is not implemented
     - Add support for quality to inserter_data_based_on_prototype
