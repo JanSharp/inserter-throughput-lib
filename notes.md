@@ -49,6 +49,7 @@
 - [x] thumbnail
 - [ ] figure out a better way to handle the docs. The mod portal long description is limited to 35k bytes
 - [ ] add support for belt stacking
+- [ ] update dev scenarios to Factorio 2.0
 
 It takes 1 tick after placement for an inserter's stack bonuses to get applied. Oof. This is handled through the library function `get_stack_size`.
 
