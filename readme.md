@@ -15,6 +15,10 @@ Simulation is out of the question. I could just leave it at that, but if you are
 
 That leaves estimation. More specifically a bit of math trying to get close to real values. To get closer to real values the algorithm can be parametrized and then run through iterations with different values for those parameters, comparing estimated values with real measured values. The result is a few magic values with which the algorithm is tuned to be a little bit more accurate.
 
+# No Belt Stacking Support
+
+Due to my lack of time to properly understand and implement belt stacking support (because my house/home got flooded), this library cannot estimate throughput when belt stacking is involved in any way.
+
 # API
 
 The inserter throughput api consists of 3 parts: utility, definition creation and estimation.
